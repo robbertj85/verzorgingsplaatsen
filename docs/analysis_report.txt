@@ -1,0 +1,65 @@
+================================================================================
+DUTCH TRUCK PARKING FACILITIES - DATA ANALYSIS REPORT
+================================================================================
+
+OVERVIEW STATISTICS
+--------------------------------------------------------------------------------
+Total Facilities Documented:     18
+  - Motorway Rest Areas:         15
+  - Private Secured Parking:     3
+
+TRUCK PARKING CAPACITY
+--------------------------------------------------------------------------------
+Total Confirmed Truck Spaces:    616
+Facilities with Capacity Data:   6 / 18
+Average Spaces per Facility:     102.7
+Data Completeness:               33.3%
+
+DISTRIBUTION BY MOTORWAY
+--------------------------------------------------------------------------------
+  A12          2 facilities
+  A15          3 facilities
+  A2           5 facilities
+  A27          5 facilities
+
+DISTRIBUTION BY PROVINCE
+--------------------------------------------------------------------------------
+  Utrecht                          7 facilities
+  Noord-Brabant                    4 facilities
+  Zuid-Holland                     3 facilities
+  Limburg                          2 facilities
+  Gelderland                       1 facilities
+  Unknown                          1 facilities
+
+TOP OPERATORS
+--------------------------------------------------------------------------------
+  Unknown                                    4 facilities
+  Shell                                      3 facilities
+  Truckparking Rotterdam Exploitatie (TRE) BV   2 facilities
+  Previously AC Restaurants, sold to La Place in 2017   1 facilities
+  Vissers Energy Group (acquired from BP Nederland in December 2022)   1 facilities
+  TotalEnergies                              1 facilities
+  Tango (unmanned)                           1 facilities
+  BP                                         1 facilities
+  Gas station available                      1 facilities
+  Esso                                       1 facilities
+
+DATA CONFIDENCE LEVELS
+--------------------------------------------------------------------------------
+  High         7 facilities (38.9%)
+  Low          1 facilities (5.6%)
+  Medium      10 facilities (55.6%)
+
+JURISDICTIONAL AUTHORITY STRUCTURE
+--------------------------------------------------------------------------------
+National (Rijkswaterstaat):      15 facilities (83%)
+Private Operators:               3 facilities (17%)
+
+POLICY CONTEXT
+--------------------------------------------------------------------------------
+Estimated National Shortage:     Approximately 4,400 truck parking spaces in the Netherlands
+
+================================================================================
+Report generated from database version 1.0
+Last updated: 2025-10-30
+================================================================================

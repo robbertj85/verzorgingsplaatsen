@@ -1,0 +1,348 @@
+{
+  "metadata": {
+    "title": "Dutch Motorway Truck Parking - Electrical Grid Infrastructure Analysis",
+    "date_created": "2025-10-30",
+    "version": "1.0",
+    "author": "Grid Infrastructure Analysis",
+    "scope": "Major motorways in the Netherlands (A1, A2, A4, A12, A15, A27, A28, A50)"
+  },
+
+  "distribution_system_operators": {
+    "liander": {
+      "full_name": "Liander N.V.",
+      "parent_company": "Alliander N.V.",
+      "service_territory": {
+        "provinces": [
+          "Noord-Holland",
+          "Gelderland",
+          "Friesland (parts)",
+          "Flevoland (parts)",
+          "Zuid-Holland (parts)"
+        ],
+        "major_cities": [
+          "Amsterdam",
+          "Apeldoorn",
+          "Amersfoort",
+          "Almere"
+        ],
+        "coverage_notes": "All northern Wadden Islands, Amsterdam metropolitan area, large parts of Gelderland"
+      },
+      "contact_information": {
+        "website": "https://www.liander.nl",
+        "business_phone": "088 542 63 62",
+        "business_hours": "Weekdays 9:00-15:00",
+        "business_portal": "https://www.liander.nl/grootzakelijk",
+        "connection_requests": "Via Mijn Liander portal or grootzakelijk contact form"
+      },
+      "grid_characteristics": {
+        "voltage_levels": ["Medium Voltage (MV)", "Low Voltage (LV)"],
+        "congestion_status": "High congestion in Gelderland, Noord-Holland, Zuid-Holland, Flevoland, Friesland",
+        "large_scale_connection_threshold": ">3x80 ampere"
+      },
+      "motorways_served": [
+        "A1 (Amsterdam to Apeldoorn section)",
+        "A6 (entire)",
+        "A7 (Noord-Holland and Friesland sections)",
+        "A8 (entire)",
+        "A9 (entire)",
+        "A10 (entire)",
+        "A12 (Gelderland section)",
+        "A15 (Gelderland section)",
+        "A27 (Flevoland section)",
+        "A30 (entire)",
+        "A31 (entire)",
+        "A44 (Amsterdam approach)",
+        "A50 (Apeldoorn-Emmeloord section)"
+      ]
+    },
+
+    "enexis": {
+      "full_name": "Enexis Netbeheer B.V.",
+      "parent_company": "Enexis Groep N.V.",
+      "service_territory": {
+        "provinces": [
+          "Groningen",
+          "Drenthe",
+          "Overijssel",
+          "Noord-Brabant",
+          "Limburg"
+        ],
+        "major_cities": [
+          "Groningen",
+          "Enschede",
+          "Eindhoven",
+          "'s-Hertogenbosch",
+          "Maastricht",
+          "Venlo"
+        ],
+        "coverage_notes": "2.7 million households in north, east, and south Netherlands"
+      },
+      "contact_information": {
+        "website": "https://www.enexis.nl",
+        "business_phone": "088 857 22 22",
+        "general_phone": "088 857 70 00",
+        "business_hours": "Weekdays 8:00-17:00",
+        "address": "Magistratenlaan 116, 5223 MB 's-Hertogenbosch",
+        "kvk_number": "17131139",
+        "vat_number": "NL809561074B01"
+      },
+      "grid_characteristics": {
+        "voltage_levels": ["Medium Voltage (MV)", "Low Voltage (LV)"],
+        "congestion_status": "Grid capacity challenges in Noord-Brabant and Limburg",
+        "large_scale_connection_threshold": ">3x80 ampere",
+        "waiting_times": "Longer waiting times for large-volume business connections"
+      },
+      "motorways_served": [
+        "A1 (Deventer to Oldenzaal section)",
+        "A2 (Den Bosch to Maastricht section)",
+        "A7 (Groningen section)",
+        "A16 (Noord-Brabant section)",
+        "A27 (Breda section)",
+        "A28 (eastern provinces)",
+        "A29 (Noord-Brabant section)",
+        "A35 (entire)",
+        "A37 (entire)",
+        "A50 (Eindhoven-Arnhem section)",
+        "A58 (Noord-Brabant section)",
+        "A59 (entire)",
+        "A67 (entire)",
+        "A73 (entire)",
+        "A76 (entire)",
+        "A79 (entire)"
+      ]
+    },
+
+    "stedin": {
+      "full_name": "Stedin Netbeheer B.V.",
+      "parent_company": "Stedin Groep N.V.",
+      "service_territory": {
+        "provinces": [
+          "Zuid-Holland (majority)",
+          "Utrecht (large parts)",
+          "Zeeland",
+          "Noord-Holland (Amstelland, Kennemerland)",
+          "Friesland (Northeast)"
+        ],
+        "major_cities": [
+          "Rotterdam",
+          "Utrecht",
+          "Den Haag (The Hague)",
+          "Parts of Amsterdam area"
+        ],
+        "coverage_notes": "Approximately 5.5 million people, 3 of 4 largest Dutch cities, Zeeland islands"
+      },
+      "contact_information": {
+        "website": "https://www.stedin.net",
+        "business_portal": "https://www.stedin.net/zakelijk",
+        "connection_portal": "https://www.mijnaansluiting.nl",
+        "connection_notes": "Applications via national portal mijnaansluiting.nl"
+      },
+      "grid_characteristics": {
+        "voltage_levels": ["Medium Voltage (MV)", "Low Voltage (LV)"],
+        "congestion_status": "Moderate to high congestion in Randstad area",
+        "large_scale_connection_threshold": ">3x80 ampere (electricity) or >40 m³/hour (gas)",
+        "special_programs": "Social prioritization framework for waiting lists"
+      },
+      "motorways_served": [
+        "A2 (Amsterdam to Utrecht section)",
+        "A4 (Rotterdam and southern sections)",
+        "A12 (The Hague to Utrecht section)",
+        "A13 (entire)",
+        "A15 (Rotterdam area)",
+        "A16 (Rotterdam area)",
+        "A20 (entire)",
+        "A27 (Utrecht area sections)",
+        "A28 (Utrecht area)",
+        "A44 (The Hague area)",
+        "A58 (Zeeland section)"
+      ]
+    }
+  },
+
+  "ev_charging_infrastructure": {
+    "national_statistics": {
+      "public_dc_fast_chargers": "4000+",
+      "total_public_charging_points": "150000+",
+      "charging_density": "Highest in Europe"
+    },
+
+    "truck_charging_initiatives": {
+      "milence": {
+        "description": "Operates 400 kW charging hubs",
+        "locations": "Multiple sites in Netherlands, Belgium, France",
+        "power_level": "400 kW per charging point"
+      },
+      "leap24": {
+        "description": "Developing charging infrastructure for commercial vehicles",
+        "status": "Active development",
+        "legal_note": "Dutch court forced Enexis to connect Leap24 charging stations"
+      },
+      "spula_subsidy": {
+        "name": "Public Charging Infrastructure Heavy Transport Subsidy Scheme",
+        "description": "Financial assistance for publicly accessible charging stations for heavy vehicles",
+        "target_audience": "Entrepreneurs and Charge Point Operators (CPOs)"
+      }
+    },
+
+    "eu_requirements": {
+      "by_2030": {
+        "overnight_chargers": "40,000 lower-power (100 kW) public chargers at truck parking areas",
+        "spacing_requirement": "Charging station for heavy goods vehicles every 60-100 km along motorways",
+        "directive": "EU Alternative Fuels Infrastructure Regulation (AFIR)"
+      }
+    },
+
+    "typical_power_requirements": {
+      "light_truck_charging": "50-150 kW",
+      "heavy_truck_charging": "150-400 kW per charging point",
+      "depot_charging": "50-150 kW (overnight)",
+      "megawatt_charging": "1000 kW+ (future standard)",
+      "transformer_requirements": "Dedicated transformer station for multiple charging points"
+    }
+  },
+
+  "grid_connection_process": {
+    "steps": [
+      {
+        "step": 1,
+        "action": "Determine responsible DSO based on location",
+        "details": "Use province and municipality to identify DSO service territory"
+      },
+      {
+        "step": 2,
+        "action": "Check grid capacity availability",
+        "details": "Review DSO capacity maps and congestion information"
+      },
+      {
+        "step": 3,
+        "action": "Prepare connection request",
+        "details": "Gather site details, power requirements, timeline"
+      },
+      {
+        "step": 4,
+        "action": "Submit application",
+        "details": "Via mijnaansluiting.nl or directly to DSO for large-scale connections"
+      },
+      {
+        "step": 5,
+        "action": "DSO feasibility study",
+        "details": "DSO assesses technical feasibility and capacity availability"
+      },
+      {
+        "step": 6,
+        "action": "Quotation and agreement",
+        "details": "DSO provides cost estimate and connection agreement"
+      },
+      {
+        "step": 7,
+        "action": "Construction and commissioning",
+        "details": "Physical installation and grid connection activation"
+      }
+    ],
+
+    "lead_times": {
+      "small_scale_connection": "3-6 months (typical)",
+      "large_scale_connection": "6-18 months (typical)",
+      "congested_areas": "18-36 months (or longer)",
+      "with_infrastructure_expansion": "24-48 months",
+      "recommendation": "Initiate contact 12-24 months in advance"
+    },
+
+    "cost_factors": [
+      "Distance to nearest connection point",
+      "Required voltage level and transformer capacity",
+      "Need for new infrastructure (cables, substations)",
+      "Grid congestion and capacity constraints",
+      "Local grid reinforcement requirements",
+      "Metering and control equipment"
+    ]
+  },
+
+  "key_considerations_for_facilities": {
+    "location_factors": [
+      "Province and municipality (determines DSO)",
+      "Distance from existing grid infrastructure",
+      "Available grid capacity in local area",
+      "Proximity to substations or transformer stations"
+    ],
+
+    "power_requirements": [
+      "Number of truck parking spaces",
+      "Percentage of spaces with charging infrastructure",
+      "Power level per charging point (kW)",
+      "Simultaneous charging demand",
+      "Additional facility power needs (lighting, services)"
+    ],
+
+    "regulatory_compliance": [
+      "EU AFIR requirements for motorway charging",
+      "Dutch building and electrical codes",
+      "Environmental permits",
+      "Coordination with Rijkswaterstaat (motorway authority)"
+    ],
+
+    "financial_considerations": [
+      "Grid connection costs (one-time)",
+      "Annual grid capacity fees",
+      "Electricity consumption costs",
+      "Available subsidies (SPULA, etc.)",
+      "Business case for charging services"
+    ],
+
+    "technical_options": [
+      "Load management systems to optimize capacity",
+      "Battery storage for peak shaving",
+      "Backup generators for reliability",
+      "Smart charging with dynamic load balancing",
+      "Flexibility contracts with DSO"
+    ]
+  },
+
+  "regulatory_framework": {
+    "national_regulator": {
+      "name": "Autoriteit Consument & Markt (ACM)",
+      "role": "Regulates energy markets and grid operators",
+      "website": "https://www.acm.nl",
+      "responsibilities": [
+        "Tariff regulation",
+        "Service quality standards",
+        "Investment plan oversight",
+        "Market conduct supervision"
+      ]
+    },
+
+    "transmission_operator": {
+      "name": "TenneT TSO B.V.",
+      "role": "High voltage transmission network (110 kV and above)",
+      "website": "https://www.tennet.eu",
+      "relationship_to_dsos": "DSOs connect to TenneT's transmission network"
+    },
+
+    "motorway_authority": {
+      "name": "Rijkswaterstaat",
+      "role": "Manages national road network including motorways",
+      "website": "https://www.rijkswaterstaat.nl",
+      "permits_required": "Land use, construction on motorway property"
+    }
+  },
+
+  "data_sources": [
+    "Company websites: Liander.nl, Enexis.nl, Stedin.net",
+    "Dutch Authority for Consumers & Markets (ACM) reports",
+    "Wikipedia: List of rest areas along Dutch motorways",
+    "Industry publications on EV charging infrastructure",
+    "EU Alternative Fuels Infrastructure Regulation (AFIR)",
+    "TenneT and DSO annual reports",
+    "Netbeheer Nederland (Dutch Grid Operators Association)"
+  ],
+
+  "important_notes": [
+    "Grid congestion is a significant issue across all major DSOs in the Netherlands",
+    "Early engagement with DSOs is critical for timely project delivery",
+    "Border locations between DSO territories may require clarification of responsibility",
+    "Large truck charging installations may require dedicated transformer stations",
+    "Flexibility contracts and load management can help optimize limited grid capacity",
+    "EU regulations mandate extensive truck charging infrastructure by 2030",
+    "Multiple funding and subsidy programs available for charging infrastructure"
+  ]
+}

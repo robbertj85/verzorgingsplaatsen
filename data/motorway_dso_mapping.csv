@@ -1,0 +1,30 @@
+Motorway,Route_Description,Primary_Provinces,Primary_DSO,Secondary_DSO,Notes
+A1,Amsterdam - Oldenzaal (German border),"Noord-Holland, Utrecht, Gelderland, Overijssel",Liander,Enexis,"Liander: Amsterdam-Apeldoorn section; Enexis: Deventer-Oldenzaal section"
+A2,Amsterdam - Maastricht (Belgian border),"Noord-Holland, Utrecht, Noord-Brabant, Limburg",Stedin,Enexis,"Stedin: Amsterdam-Utrecht; Enexis: Den Bosch-Maastricht"
+A4,Amsterdam - Bergen op Zoom (Belgian border),"Noord-Holland, Zuid-Holland, Zeeland",Liander,Stedin,"Liander: Amsterdam area; Stedin: Rotterdam and southern sections"
+A6,Amsterdam - Joure,"Noord-Holland, Flevoland, Friesland",Liander,,Entire route in Liander territory
+A7,Zaandam - German border,"Noord-Holland, Friesland, Groningen",Liander,Enexis,"Liander: Noord-Holland and Friesland; Enexis: Groningen"
+A8,Amsterdam - Zaandam,Noord-Holland,Liander,,Entire route in Liander territory
+A9,Amsterdam Ring Road,Noord-Holland,Liander,,Entire route in Liander territory (Amsterdam area)
+A10,Amsterdam Ring Road,Noord-Holland,Liander,,Entire route in Liander territory (Amsterdam)
+A12,The Hague - Oberhausen (German border),"Zuid-Holland, Utrecht, Gelderland",Stedin,Liander,"Stedin: The Hague-Utrecht; Liander: Gelderland section"
+A13,The Hague - Rotterdam,Zuid-Holland,Stedin,,Entire route in Stedin territory
+A15,Europoort - Bemmel,"Zuid-Holland, Gelderland",Stedin,Liander,"Stedin: Rotterdam area; Liander: Gelderland (Arnhem-Nijmegen)"
+A16,Rotterdam - Belgian border,"Zuid-Holland, Noord-Brabant",Stedin,Enexis,"Stedin: Rotterdam area; Enexis: Noord-Brabant section"
+A20,Rotterdam Ring Road,Zuid-Holland,Stedin,,Entire route in Stedin territory
+A27,Breda - Almere,"Noord-Brabant, Zuid-Holland, Utrecht, Noord-Holland, Flevoland",Enexis,"Stedin, Liander","Enexis: Breda; Stedin: Utrecht area; Liander: Flevoland"
+A28,Utrecht - Groningen,"Utrecht, Gelderland, Overijssel, Drenthe, Groningen",Stedin,Enexis,"Stedin: Utrecht area; Enexis: eastern provinces"
+A29,Rotterdam - Bergen op Zoom,"Zuid-Holland, Noord-Brabant",Stedin,Enexis,Stedin: Rotterdam area; Enexis: Noord-Brabant
+A30,Ede - German border,Gelderland,Liander,,Entire route in Liander territory (Gelderland)
+A31,Leeuwarden - Zurich,Friesland,Liander,,Entire route in Liander territory (Friesland)
+A32,Leeuwarden - Meppel,"Friesland, Drenthe",Liander,Enexis,"Liander: Friesland; Enexis: Drenthe"
+A35,Almelo - Enschede,Overijssel,Enexis,,Entire route in Enexis territory
+A37,Hoogeveen - German border,"Drenthe, Overijssel",Enexis,,Entire route in Enexis territory
+A44,The Hague - Amsterdam,"Zuid-Holland, Noord-Holland",Stedin,Liander,"Stedin: The Hague area; Liander: Amsterdam approach"
+A50,Eindhoven - Emmeloord,"Noord-Brabant, Gelderland, Overijssel, Flevoland",Enexis,Liander,"Enexis: Eindhoven-Arnhem; Liander: Apeldoorn-Emmeloord"
+A58,Breda - Vlissingen,"Noord-Brabant, Zeeland",Enexis,Stedin,"Enexis: Noord-Brabant; Stedin: Zeeland"
+A59,Breda - Raamsdonksveer,Noord-Brabant,Enexis,,Entire route in Enexis territory
+A67,Antwerp (Belgian border) - Venlo,"Noord-Brabant, Limburg",Enexis,,Entire route in Enexis territory
+A73,Bergen op Zoom - Venlo,"Noord-Brabant, Limburg",Enexis,,Entire route in Enexis territory
+A76,Geleen - German border,Limburg,Enexis,,Entire route in Enexis territory
+A79,Maastricht - Heerlen,Limburg,Enexis,,Entire route in Enexis territory

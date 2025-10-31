@@ -1,0 +1,30 @@
+Category,Metric,Value
+Overview,Total Facilities,18
+Overview,Motorway Facilities,15
+Overview,Private Facilities,3
+
+Motorway,Facility Count
+A12,2
+A15,3
+A2,5
+A27,5
+
+Province,Facility Count
+Utrecht,7
+Noord-Brabant,4
+Zuid-Holland,3
+Limburg,2
+Gelderland,1
+Unknown,1
+
+Operator,Facility Count
+Unknown,4
+Shell,3
+Truckparking Rotterdam Exploitatie (TRE) BV,2
+"Previously AC Restaurants, sold to La Place in 2017",1
+Vissers Energy Group (acquired from BP Nederland in December 2022),1
+TotalEnergies,1
+Tango (unmanned),1
+BP,1
+Gas station available,1
+Esso,1

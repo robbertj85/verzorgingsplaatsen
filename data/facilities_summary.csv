@@ -1,0 +1,19 @@
+Facility ID,Facility Name,Motorway,Direction,Municipality,Province,Truck Spaces,Car Spaces,LZV Spaces,Fuel Operator,Restaurant,Primary Authority,Authority Level,Property Manager,Operational Authority,Confidence Level,Established,Last Updated
+A2-001,Haarrijn,A2,Amsterdam → Maastricht,Stichtse Vecht,Utrecht,30,,18,Shell,,Rijkswaterstaat,National,Rijksvastgoedbedrijf,Shell Nederland B.V.,High,Pre-2008,July 2008
+A2-002,Ruwiel,A2,Maastricht → Amsterdam,Stichtse Vecht,Utrecht,Available,,,Not specified,,Rijkswaterstaat,National,Rijksvastgoedbedrijf,,Medium,,
+A2-003,IJsselstein,A2,Amsterdam → Maastricht,IJsselstein,Utrecht,0,Limited,,Not specified,,Rijkswaterstaat,National,Rijksvastgoedbedrijf,,Medium,,
+A2-004,Meiberg,A2,Towards Eindhoven,Weert,Limburg,Available,,,Formerly AC Restaurants,La Place,Rijkswaterstaat,National,Rijksvastgoedbedrijf,,Medium,,
+A2-005,Vossedal,A2,Towards Maastricht,Beek,Limburg,Available,,,Vissers Energy,Moments & More,Rijkswaterstaat,National,Rijksvastgoedbedrijf,Vissers Energy Group,High,Pre-2022,Dec 2022
+A12-001,Oudenhorst,A12,Arnhem → Utrecht,Woudenberg/Utrechtse Heuvelrug,Utrecht,19,Extensive,,TotalEnergies,La Place (via bridge),Rijkswaterstaat,National,Rijksvastgoedbedrijf,TotalEnergies,High,Early 1990s,
+A12-002,Bloemheuvel,A12,Utrecht → Arnhem,Woudenberg/Utrechtse Heuvelrug,Utrecht,Extensive,Extensive,,Shell,La Place,Rijkswaterstaat,National,Rijksvastgoedbedrijf,Shell Nederland B.V.,High,Early 1990s,
+A15-001,Ridderkerk (area),A15,,Ridderkerk,Zuid-Holland,Not specified,,,,,Rijkswaterstaat,National,Rijksvastgoedbedrijf,,Low,,
+A15-002,Varakker,A15,,Kesteren,Gelderland,Not specified,,,Shell,,Rijkswaterstaat,National,Rijksvastgoedbedrijf,Shell Nederland B.V.,Medium,,
+A15-003,Staaldiep,A15,,,Not specified,Not specified,,,Tango (unmanned),,Rijkswaterstaat,National,Rijksvastgoedbedrijf,,Medium,,
+A27-001,De Keizer,A27,Breda → Almere,Altena,Noord-Brabant,17,Several dozen,,BP,,Rijkswaterstaat,National,Rijksvastgoedbedrijf,De Haan Tankstations (BP),High,Early 1990s,
+A27-002,Hank,A27,Almere → Breda,Altena,Noord-Brabant,Minimal,,,Gas station only,,Rijkswaterstaat,National,Rijksvastgoedbedrijf,,Medium,Early 1980s,
+A27-003,Galgeveld,A27,Almere → Breda,Oosterhout,Noord-Brabant,Available,Available,,Esso,,Rijkswaterstaat,National,Rijksvastgoedbedrijf,Esso,Medium,,
+A27-004,De Knoest,A27,,Near Hagestein,Utrecht,Not specified,,,,,Rijkswaterstaat,National,Rijksvastgoedbedrijf,,Medium,,
+A27-005,Eemakker,A27,,,Utrecht,Not specified,,,,,Rijkswaterstaat,National,Rijksvastgoedbedrijf,,Medium,,
+PRIV-001,Maasvlakte Plaza,Near Port,Private Facility,Rotterdam,Zuid-Holland,350,,,Multiple,Restaurant,TRE BV (Private),Private,Port of Rotterdam (expansion),,High,,
+PRIV-002,Truckparking Hazeldonk,Near A16,Private Facility,Breda,Noord-Brabant,200,,,Multiple,Restaurant,TRE BV (Private),Private,,,High,,
+PRIV-003,Truckparq Alblasserdam,A15 Exit 22,Private Facility,Alblasserdam,Zuid-Holland,Not specified,,,Multiple,,Private Operator,Private,,,Medium,,

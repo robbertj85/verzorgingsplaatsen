@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dutch Truck Parking Facilities - Interactive Dashboard</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f9fafb;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            grid-template-rows: auto 1fr;
+            height: 100vh;
+        }
+        .header {
+            grid-column: 1 / -1;
+            background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+            color: white;
+            padding: 20px 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .sidebar {
+            background: white;
+            border-right: 1px solid #e5e7eb;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        .stats-section {
+            margin-bottom: 25px;
+        }
+        .stats-section h2 {
+            font-size: 16px;
+            color: #374151;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        .stat-card.primary {
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        }
+        .stat-card.success {
+            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+        }
+        .stat-card.warning {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #6b7280;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #111827;
+            margin-top: 4px;
+        }
+        .facility-list {
+            margin-top: 12px;
+        }
+        .facility-item {
+            padding: 10px;
+            background: #f9fafb;
+            border-left: 3px solid #2563eb;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .facility-item:hover {
+            background: #f3f4f6;
+            transform: translateX(3px);
+        }
+        .facility-item.private {
+            border-left-color: #dc2626;
+        }
+        .facility-name {
+            font-weight: 600;
+            color: #111827;
+            font-size: 13px;
+        }
+        .facility-meta {
+            font-size: 11px;
+            color: #6b7280;
+            margin-top: 3px;
+        }
+        .chart-container {
+            margin-top: 15px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        #map {
+            height: 100%;
+            position: relative;
+        }
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            right: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            font-size: 13px;
+        }
+        .legend h3 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+        }
+        .legend-icon {
+            width: 20px;
+            height: 20px;
+            margin-right: 8px;
+            border-radius: 50%;
+        }
+        .motorway {
+            background: #2563eb;
+        }
+        .private {
+            background: #dc2626;
+        }
+        .popup-content h3 {
+            margin: 0 0 8px 0;
+            color: #1f2937;
+        }
+        .popup-content .facility-info {
+            margin: 5px 0;
+            font-size: 13px;
+        }
+        .popup-content .label {
+            font-weight: 600;
+            color: #4b5563;
+        }
+        .popup-content .jurisdiction {
+            background: #f3f4f6;
+            padding: 8px;
+            margin-top: 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .popup-content .amenities {
+            margin-top: 8px;
+            font-size: 12px;
+        }
+        .popup-content .amenity {
+            display: inline-block;
+            background: #dbeafe;
+            padding: 3px 8px;
+            margin: 2px;
+            border-radius: 3px;
+        }
+        .confidence-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .confidence-high {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .confidence-medium {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .confidence-low {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .filter-section {
+            margin-bottom: 20px;
+        }
+        .filter-btn {
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-right: 5px;
+            margin-bottom: 5px;
+            transition: all 0.2s;
+        }
+        .filter-btn:hover {
+            background: #f3f4f6;
+        }
+        .filter-btn.active {
+            background: #2563eb;
+            color: white;
+            border-color: #2563eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚛 Dutch Truck Parking Facilities</h1>
+            <p>Comprehensive database of verzorgingsplaatsen along Dutch motorways</p>
+        </div>
+
+        <div class="sidebar">
+            <div class="stats-section">
+                <h2>Overview Statistics</h2>
+                <div class="stat-card primary">
+                    <div class="stat-label">Total Facilities</div>
+                    <div class="stat-value" id="total-facilities">0</div>
+                </div>
+                <div class="stat-card success">
+                    <div class="stat-label">Motorway Rest Areas</div>
+                    <div class="stat-value" id="motorway-facilities">0</div>
+                </div>
+                <div class="stat-card warning">
+                    <div class="stat-label">Private Parking</div>
+                    <div class="stat-value" id="private-facilities">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Truck Spaces</div>
+                    <div class="stat-value" id="total-truck-spaces">0</div>
+                </div>
+            </div>
+
+            <div class="stats-section">
+                <h2>Filter by Motorway</h2>
+                <div class="filter-section" id="motorway-filters">
+                    <button class="filter-btn active" data-filter="all">All</button>
+                    <button class="filter-btn" data-filter="A2">A2</button>
+                    <button class="filter-btn" data-filter="A12">A12</button>
+                    <button class="filter-btn" data-filter="A15">A15</button>
+                    <button class="filter-btn" data-filter="A27">A27</button>
+                    <button class="filter-btn" data-filter="private">Private</button>
+                </div>
+            </div>
+
+            <div class="stats-section">
+                <h2>Distribution by Authority</h2>
+                <div class="chart-container">
+                    <canvas id="authority-chart"></canvas>
+                </div>
+            </div>
+
+            <div class="stats-section">
+                <h2>Facilities by Motorway</h2>
+                <div class="chart-container">
+                    <canvas id="motorway-chart"></canvas>
+                </div>
+            </div>
+
+            <div class="stats-section">
+                <h2>Facility List</h2>
+                <div class="facility-list" id="facility-list"></div>
+            </div>
+        </div>
+
+        <div id="map">
+            <div class="legend">
+                <h3>Legend</h3>
+                <div class="legend-item">
+                    <div class="legend-icon motorway"></div>
+                    <span>Motorway Rest Area</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-icon private"></div>
+                    <span>Private Secured Parking</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialize map
+        const map = L.map('map').setView([52.1326, 5.2913], 8);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19
+        }).addTo(map);
+
+        // Custom icons
+        const motorwayIcon = L.divIcon({
+            className: 'custom-icon',
+            html: '<div style="background-color: #2563eb; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
+        });
+
+        const privateIcon = L.divIcon({
+            className: 'custom-icon',
+            html: '<div style="background-color: #dc2626; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
+        });
+
+        // Store markers for filtering
+        let allMarkers = [];
+        let authorityChart, motorwayChart;
+
+        // Load data
+        Promise.all([
+            fetch('data/verzorgingsplaatsen_database.json').then(r => r.json()),
+            fetch('data/facility_coordinates.json').then(r => r.json())
+        ]).then(([database, coordinates]) => {
+            const facilities = database.facilities || [];
+            const privateFacilities = database.secured_private_facilities || [];
+            const allFacilities = [...facilities, ...privateFacilities];
+
+            // Calculate statistics
+            const motorwayCount = facilities.length;
+            const privateCount = privateFacilities.length;
+            const totalCount = allFacilities.length;
+
+            let totalTruckSpaces = 0;
+            allFacilities.forEach(f => {
+                const spaces = f.parking_capacity?.truck_spaces || f.parking_capacity?.total_truck_spaces;
+                if (typeof spaces === 'number') totalTruckSpaces += spaces;
+            });
+
+            // Update stats
+            document.getElementById('total-facilities').textContent = totalCount;
+            document.getElementById('motorway-facilities').textContent = motorwayCount;
+            document.getElementById('private-facilities').textContent = privateCount;
+            document.getElementById('total-truck-spaces').textContent = totalTruckSpaces > 0 ? totalTruckSpaces : 'N/A';
+
+            // Add markers
+            allFacilities.forEach(facility => {
+                const facilityId = facility.facility_id;
+                const coord = coordinates.facilities[facilityId];
+
+                if (!coord) return;
+
+                const isPrivate = facilityId.startsWith('PRIV');
+                const icon = isPrivate ? privateIcon : motorwayIcon;
+
+                const motorway = facility.motorway || facility.location?.nearest_motorway || 'Unknown';
+                const municipality = facility.location?.municipality || facility.municipality || 'Unknown';
+                const operator = facility.facilities?.fuel_station?.operator || facility.operator || 'Unknown';
+                const authority = facility.jurisdiction?.primary_authority || 'Unknown';
+                const confidence = facility.confidence_level || 'Unknown';
+
+                let truckSpaces = facility.parking_capacity?.truck_spaces || facility.parking_capacity?.total_truck_spaces || 'Not specified';
+                const lzvSpaces = facility.parking_capacity?.lzv_spaces;
+
+                let amenities = [];
+                if (facility.facilities?.fuel_station) amenities.push('Fuel');
+                if (facility.facilities?.restaurant) amenities.push('Restaurant');
+                if (facility.facilities?.amenities) amenities.push(...facility.facilities.amenities);
+
+                let popupContent = `
+                    <div class="popup-content">
+                        <h3>${facility.facility_name}</h3>
+                        <div class="facility-info">
+                            <span class="label">ID:</span> ${facilityId}
+                        </div>
+                        <div class="facility-info">
+                            <span class="label">Motorway:</span> ${motorway}
+                        </div>
+                        <div class="facility-info">
+                            <span class="label">Municipality:</span> ${municipality}
+                        </div>
+                        <div class="facility-info">
+                            <span class="label">Truck Spaces:</span> ${truckSpaces}${lzvSpaces ? ` (+ ${lzvSpaces} LZV)` : ''}
+                        </div>
+                        <div class="facility-info">
+                            <span class="label">Operator:</span> ${operator}
+                        </div>
+                        ${amenities.length > 0 ? `
+                            <div class="amenities">
+                                ${amenities.map(a => `<span class="amenity">${a}</span>`).join('')}
+                            </div>
+                        ` : ''}
+                        <div class="jurisdiction">
+                            <span class="label">Authority:</span> ${authority}
+                        </div>
+                        <div style="margin-top: 8px;">
+                            <span class="confidence-badge confidence-${confidence.toLowerCase()}">${confidence} Confidence</span>
+                        </div>
+                    </div>
+                `;
+
+                const marker = L.marker([coord.lat, coord.lng], { icon: icon })
+                    .bindPopup(popupContent, { maxWidth: 300 })
+                    .addTo(map);
+
+                marker.facilityData = {
+                    id: facilityId,
+                    name: facility.facility_name,
+                    motorway: motorway,
+                    isPrivate: isPrivate,
+                    municipality: municipality
+                };
+
+                allMarkers.push(marker);
+            });
+
+            // Create facility list
+            const facilityList = document.getElementById('facility-list');
+            allFacilities.forEach(facility => {
+                const facilityId = facility.facility_id;
+                const coord = coordinates.facilities[facilityId];
+                if (!coord) return;
+
+                const isPrivate = facilityId.startsWith('PRIV');
+                const motorway = facility.motorway || facility.location?.nearest_motorway || 'Unknown';
+                const municipality = facility.location?.municipality || facility.municipality || 'Unknown';
+
+                const item = document.createElement('div');
+                item.className = `facility-item ${isPrivate ? 'private' : ''}`;
+                item.innerHTML = `
+                    <div class="facility-name">${facility.facility_name}</div>
+                    <div class="facility-meta">${motorway} • ${municipality}</div>
+                `;
+                item.onclick = () => {
+                    map.setView([coord.lat, coord.lng], 12);
+                    const marker = allMarkers.find(m => m.facilityData.id === facilityId);
+                    if (marker) marker.openPopup();
+                };
+                facilityList.appendChild(item);
+            });
+
+            // Create charts
+            createCharts(facilities, privateFacilities);
+
+            // Setup filters
+            setupFilters();
+
+            // Add motorway polylines
+            const motorways = {
+                A2: [[52.3792, 4.8994], [52.1667, 5.0000], [52.0200, 5.0400], [51.8800, 5.2900], [51.2500, 5.7000], [50.9500, 5.7800], [50.8513, 5.6909]],
+                A12: [[52.0698, 4.3004], [52.0500, 5.4200], [52.0890, 5.8740], [51.8500, 6.0000]],
+                A15: [[51.9100, 4.4500], [51.8500, 5.1000], [51.9500, 5.5700], [51.9680, 5.9310]],
+                A27: [[51.5600, 4.7800], [51.6500, 4.8800], [51.7200, 4.9000], [51.9500, 5.1200], [52.1000, 5.1800], [52.2000, 5.2500], [52.5100, 5.2000]]
+            };
+
+            Object.entries(motorways).forEach(([name, coords]) => {
+                L.polyline(coords, {
+                    color: '#9ca3af',
+                    weight: 3,
+                    opacity: 0.4,
+                    dashArray: '10, 10'
+                }).addTo(map).bindTooltip(name, { permanent: false, sticky: true });
+            });
+
+        }).catch(error => {
+            console.error('Error loading data:', error);
+            alert('Error loading facility data. Please ensure data files are present.');
+        });
+
+        function createCharts(facilities, privateFacilities) {
+            // Authority distribution chart
+            const authCtx = document.getElementById('authority-chart').getContext('2d');
+            authorityChart = new Chart(authCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Rijkswaterstaat', 'Private'],
+                    datasets: [{
+                        data: [facilities.length, privateFacilities.length],
+                        backgroundColor: ['#2563eb', '#dc2626'],
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { font: { size: 11 } }
+                        }
+                    }
+                }
+            });
+
+            // Motorway distribution chart
+            const motorwayCounts = {};
+            facilities.forEach(f => {
+                const motorway = f.motorway;
+                motorwayCounts[motorway] = (motorwayCounts[motorway] || 0) + 1;
+            });
+
+            const mwCtx = document.getElementById('motorway-chart').getContext('2d');
+            motorwayChart = new Chart(mwCtx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(motorwayCounts),
+                    datasets: [{
+                        label: 'Facilities',
+                        data: Object.values(motorwayCounts),
+                        backgroundColor: '#2563eb',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { stepSize: 1 }
+                        }
+                    }
+                }
+            });
+        }
+
+        function setupFilters() {
+            const filterButtons = document.querySelectorAll('.filter-btn');
+            filterButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    filterButtons.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+
+                    const filter = btn.dataset.filter;
+                    filterMarkers(filter);
+                });
+            });
+        }
+
+        function filterMarkers(filter) {
+            allMarkers.forEach(marker => {
+                if (filter === 'all') {
+                    marker.addTo(map);
+                } else if (filter === 'private') {
+                    if (marker.facilityData.isPrivate) {
+                        marker.addTo(map);
+                    } else {
+                        map.removeLayer(marker);
+                    }
+                } else {
+                    if (marker.facilityData.motorway === filter) {
+                        marker.addTo(map);
+                    } else {
+                        map.removeLayer(marker);
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>

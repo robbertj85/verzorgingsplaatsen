@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dutch Truck Parking Facilities Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+        .header {
+            position: absolute;
+            top: 10px;
+            left: 50px;
+            z-index: 1000;
+            background: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            max-width: 400px;
+        }
+        .header h1 {
+            margin: 0 0 5px 0;
+            font-size: 20px;
+            color: #333;
+        }
+        .header p {
+            margin: 0;
+            font-size: 13px;
+            color: #666;
+        }
+        .legend {
+            position: absolute;
+            bottom: 30px;
+            right: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            font-size: 13px;
+        }
+        .legend h3 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+        }
+        .legend-icon {
+            width: 20px;
+            height: 20px;
+            margin-right: 8px;
+            border-radius: 50%;
+        }
+        .motorway {
+            background: #2563eb;
+        }
+        .private {
+            background: #dc2626;
+        }
+        .popup-content h3 {
+            margin: 0 0 8px 0;
+            color: #1f2937;
+        }
+        .popup-content .facility-info {
+            margin: 5px 0;
+            font-size: 13px;
+        }
+        .popup-content .label {
+            font-weight: 600;
+            color: #4b5563;
+        }
+        .popup-content .jurisdiction {
+            background: #f3f4f6;
+            padding: 8px;
+            margin-top: 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .popup-content .amenities {
+            margin-top: 8px;
+            font-size: 12px;
+        }
+        .popup-content .amenity {
+            display: inline-block;
+            background: #dbeafe;
+            padding: 3px 8px;
+            margin: 2px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Dutch Truck Parking Facilities</h1>
+        <p>Verzorgingsplaatsen along Dutch Motorways</p>
+    </div>
+
+    <div class="legend">
+        <h3>Legend</h3>
+        <div class="legend-item">
+            <div class="legend-icon motorway"></div>
+            <span>Motorway Rest Area</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-icon private"></div>
+            <span>Private Secured Parking</span>
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialize map centered on Netherlands
+        const map = L.map('map').setView([52.1326, 5.2913], 8);
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19
+        }).addTo(map);
+
+        // Custom icons
+        const motorwayIcon = L.divIcon({
+            className: 'custom-icon',
+            html: '<div style="background-color: #2563eb; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
+        });
+
+        const privateIcon = L.divIcon({
+            className: 'custom-icon',
+            html: '<div style="background-color: #dc2626; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
+        });
+
+        // Facility data with approximate coordinates (based on municipality/location descriptions)
+        const facilities = [
+            // A2 Facilities
+            {
+                name: "Haarrijn",
+                motorway: "A2",
+                lat: 52.1667, lng: 5.0000,
+                type: "motorway",
+                operator: "Shell",
+                truckSpaces: 30,
+                lzvSpaces: 18,
+                amenities: ["Fuel", "Mirror adjustment", "EV charging"],
+                authority: "Rijkswaterstaat",
+                municipality: "Stichtse Vecht"
+            },
+            {
+                name: "Ruwiel",
+                motorway: "A2",
+                lat: 52.1500, lng: 4.9800,
+                type: "motorway",
+                operator: "Unknown",
+                truckSpaces: "Available",
+                amenities: ["Fuel"],
+                authority: "Rijkswaterstaat",
+                municipality: "Stichtse Vecht"
+            },
+            {
+                name: "IJsselstein",
+                motorway: "A2",
+                lat: 52.0200, lng: 5.0400,
+                type: "motorway",
+                operator: "Unknown",
+                truckSpaces: 0,
+                amenities: ["Fuel only"],
+                authority: "Rijkswaterstaat",
+                municipality: "IJsselstein",
+                note: "Not suitable for trucks"
+            },
+            {
+                name: "Meiberg",
+                motorway: "A2",
+                lat: 51.2500, lng: 5.7000,
+                type: "motorway",
+                operator: "La Place",
+                truckSpaces: "Available",
+                amenities: ["Fuel", "Restaurant"],
+                authority: "Rijkswaterstaat",
+                municipality: "Weert"
+            },
+            {
+                name: "Vossedal",
+                motorway: "A2",
+                lat: 50.9500, lng: 5.7800,
+                type: "motorway",
+                operator: "Vissers Energy",
+                truckSpaces: "Available",
+                amenities: ["Fuel", "Restaurant (Moments & More)"],
+                authority: "Rijkswaterstaat",
+                municipality: "Beek"
+            },
+            // A12 Facilities
+            {
+                name: "Oudenhorst",
+                motorway: "A12",
+                lat: 52.0500, lng: 5.4200,
+                type: "motorway",
+                operator: "TotalEnergies",
+                truckSpaces: 19,
+                amenities: ["Fuel", "Restaurant (La Place)", "Pedestrian bridge"],
+                authority: "Rijkswaterstaat",
+                municipality: "Woudenberg/Utrechtse Heuvelrug"
+            },
+            {
+                name: "Bloemheuvel",
+                motorway: "A12",
+                lat: 52.0520, lng: 5.4220,
+                type: "motorway",
+                operator: "Shell",
+                truckSpaces: "Extensive",
+                amenities: ["Fuel", "Restaurant (La Place)", "Pedestrian bridge"],
+                authority: "Rijkswaterstaat",
+                municipality: "Woudenberg/Utrechtse Heuvelrug"
+            },
+            // A15 Facilities
+            {
+                name: "Varakker",
+                motorway: "A15",
+                lat: 51.9500, lng: 5.5700,
+                type: "motorway",
+                operator: "Shell",
+                truckSpaces: "Available",
+                amenities: ["Fuel"],
+                authority: "Rijkswaterstaat",
+                municipality: "Kesteren"
+            },
+            {
+                name: "Staaldiep",
+                motorway: "A15",
+                lat: 51.8500, lng: 5.1000,
+                type: "motorway",
+                operator: "Tango (unmanned)",
+                truckSpaces: "Available",
+                amenities: ["Fuel (unmanned)"],
+                authority: "Rijkswaterstaat",
+                municipality: "Unknown"
+            },
+            // A27 Facilities
+            {
+                name: "De Keizer",
+                motorway: "A27",
+                lat: 51.7200, lng: 4.9000,
+                type: "motorway",
+                operator: "BP",
+                truckSpaces: 17,
+                amenities: ["Fuel", "EV charging (Fastned)"],
+                authority: "Rijkswaterstaat",
+                municipality: "Altena"
+            },
+            {
+                name: "Hank",
+                motorway: "A27",
+                lat: 51.7220, lng: 4.9020,
+                type: "motorway",
+                operator: "Gas station",
+                truckSpaces: "Minimal",
+                amenities: ["Fuel"],
+                authority: "Rijkswaterstaat",
+                municipality: "Altena",
+                note: "Limited capacity"
+            },
+            {
+                name: "Galgeveld",
+                motorway: "A27",
+                lat: 51.6500, lng: 4.8800,
+                type: "motorway",
+                operator: "Esso",
+                truckSpaces: "Available",
+                amenities: ["Fuel"],
+                authority: "Rijkswaterstaat",
+                municipality: "Oosterhout"
+            },
+            {
+                name: "De Knoest",
+                motorway: "A27",
+                lat: 51.9500, lng: 5.1200,
+                type: "motorway",
+                operator: "Unknown",
+                truckSpaces: "Available",
+                amenities: [],
+                authority: "Rijkswaterstaat",
+                municipality: "Hagestein"
+            },
+            {
+                name: "Eemakker",
+                motorway: "A27",
+                lat: 52.2000, lng: 5.2500,
+                type: "motorway",
+                operator: "Unknown",
+                truckSpaces: "Available",
+                amenities: [],
+                authority: "Rijkswaterstaat",
+                municipality: "Utrecht"
+            },
+            // Private Facilities
+            {
+                name: "Maasvlakte Plaza",
+                motorway: "Near Port of Rotterdam",
+                lat: 51.9500, lng: 4.0200,
+                type: "private",
+                operator: "TRE BV",
+                truckSpaces: 350,
+                amenities: ["Restaurant", "Showers", "WiFi", "Security", "24/7"],
+                authority: "Private (TRE BV)",
+                municipality: "Rotterdam",
+                pricing: "~€14/night"
+            },
+            {
+                name: "Truckparking Hazeldonk",
+                motorway: "Near A16",
+                lat: 51.5800, lng: 4.5700,
+                type: "private",
+                operator: "TRE BV",
+                truckSpaces: 200,
+                amenities: ["Restaurant", "Showers", "WiFi", "Security", "24/7"],
+                authority: "Private (TRE BV)",
+                municipality: "Breda",
+                pricing: "~€14/night"
+            },
+            {
+                name: "Truckparq Alblasserdam",
+                motorway: "A15 Exit 22",
+                lat: 51.8700, lng: 4.6600,
+                type: "private",
+                operator: "Private",
+                truckSpaces: "Available",
+                amenities: ["Secured parking"],
+                authority: "Private",
+                municipality: "Alblasserdam"
+            }
+        ];
+
+        // Add markers to map
+        facilities.forEach(facility => {
+            const icon = facility.type === 'motorway' ? motorwayIcon : privateIcon;
+
+            let popupContent = `
+                <div class="popup-content">
+                    <h3>${facility.name}</h3>
+                    <div class="facility-info">
+                        <span class="label">Motorway:</span> ${facility.motorway}
+                    </div>
+                    <div class="facility-info">
+                        <span class="label">Municipality:</span> ${facility.municipality}
+                    </div>
+                    <div class="facility-info">
+                        <span class="label">Truck Spaces:</span> ${facility.truckSpaces}${facility.lzvSpaces ? ` (+ ${facility.lzvSpaces} LZV)` : ''}
+                    </div>
+                    ${facility.operator ? `<div class="facility-info"><span class="label">Operator:</span> ${facility.operator}</div>` : ''}
+                    ${facility.pricing ? `<div class="facility-info"><span class="label">Price:</span> ${facility.pricing}</div>` : ''}
+                    ${facility.amenities.length > 0 ? `
+                        <div class="amenities">
+                            <div class="label">Amenities:</div>
+                            ${facility.amenities.map(a => `<span class="amenity">${a}</span>`).join('')}
+                        </div>
+                    ` : ''}
+                    <div class="jurisdiction">
+                        <span class="label">Authority:</span> ${facility.authority}
+                    </div>
+                    ${facility.note ? `<div style="margin-top: 8px; font-size: 11px; color: #dc2626;">${facility.note}</div>` : ''}
+                </div>
+            `;
+
+            L.marker([facility.lat, facility.lng], { icon: icon })
+                .bindPopup(popupContent, { maxWidth: 300 })
+                .addTo(map);
+        });
+
+        // Add polylines for major motorways (A2, A12, A15, A27)
+        const motorways = {
+            A2: [[52.3792, 4.8994], [52.1667, 5.0000], [52.0200, 5.0400], [51.8800, 5.2900], [51.2500, 5.7000], [50.9500, 5.7800], [50.8513, 5.6909]],
+            A12: [[52.0698, 4.3004], [52.0500, 5.4200], [52.0890, 5.8740], [51.8500, 6.0000]],
+            A15: [[51.9100, 4.4500], [51.8500, 5.1000], [51.9500, 5.5700], [51.9680, 5.9310]],
+            A27: [[51.5600, 4.7800], [51.6500, 4.8800], [51.7200, 4.9000], [51.9500, 5.1200], [52.1000, 5.1800], [52.2000, 5.2500], [52.5100, 5.2000]]
+        };
+
+        Object.entries(motorways).forEach(([name, coords]) => {
+            L.polyline(coords, {
+                color: '#9ca3af',
+                weight: 3,
+                opacity: 0.5,
+                dashArray: '10, 10'
+            }).addTo(map).bindTooltip(name, { permanent: false, sticky: true });
+        });
+    </script>
+</body>
+</html>
