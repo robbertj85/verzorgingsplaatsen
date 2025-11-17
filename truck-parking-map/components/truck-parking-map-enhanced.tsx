@@ -1,16 +1,20 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { MapContainer, TileLayer, GeoJSON, useMap, useMapEvents } from "react-leaflet";
-import L, { LatLngExpression } from "leaflet";
+import L, { LatLngExpression, LatLngBounds } from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "leaflet.markercluster/dist/MarkerCluster.css";
+import "leaflet.markercluster/dist/MarkerCluster.Default.css";
+import "leaflet.markercluster";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Truck, MapPin, Search, X } from "lucide-react";
+import { Truck, MapPin, Search, X, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import area from "@turf/area";
+import type { NDWEnrichedFacility, NDWDataResponse } from "@/lib/ndw-types";
 
 // Fix Leaflet default icon issue with Next.js
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -67,17 +71,83 @@ const FACILITY_LABELS = {
   rest_area: "Rest Area",
 };
 
-// Component to handle zoom-based marker resizing
-function ZoomHandler({ onZoomChange }: { onZoomChange: (zoom: number) => void }) {
+// Base map layer options
+const BASE_LAYERS = {
+  osm: {
+    name: "OpenStreetMap",
+    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  },
+  satellite: {
+    name: "Satellite (Global)",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+  },
+  pdokAerial: {
+    name: "PDOK Aerial 25cm",
+    url: "https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_ortho25/EPSG:3857/{z}/{x}/{y}.jpeg",
+    attribution: '&copy; <a href="https://www.pdok.nl">PDOK</a> - Actuele luchtfoto\'s ortho 25cm',
+  },
+  pdokHR: {
+    name: "PDOK Aerial HR",
+    url: "https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_orthoHR/EPSG:3857/{z}/{x}/{y}.jpeg",
+    attribution: '&copy; <a href="https://www.pdok.nl">PDOK</a> - Actuele luchtfoto\'s ortho HR',
+  },
+  topo: {
+    name: "Topographic",
+    url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+    attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
+  },
+  dark: {
+    name: "Dark",
+    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  },
+  light: {
+    name: "Light",
+    url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  },
+};
+
+// Component to handle zoom and viewport changes
+function MapEventHandler({
+  onZoomChange,
+  onViewportChange
+}: {
+  onZoomChange: (zoom: number) => void;
+  onViewportChange: (bounds: LatLngBounds) => void;
+}) {
   const map = useMapEvents({
     zoomend: () => {
       onZoomChange(map.getZoom());
+      onViewportChange(map.getBounds());
+    },
+    moveend: () => {
+      onViewportChange(map.getBounds());
     },
   });
 
   useEffect(() => {
     onZoomChange(map.getZoom());
+    onViewportChange(map.getBounds());
   }, []);
+
+  return null;
+}
+
+// Component to handle flying to a specific location
+function FlyToLocation({ target }: { target: { lat: number; lng: number; zoom?: number } | null }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (target) {
+      map.flyTo([target.lat, target.lng], target.zoom || 15, {
+        duration: 1.5,
+        easeLinearity: 0.25,
+      });
+    }
+  }, [target, map]);
 
   return null;
 }
@@ -105,94 +175,252 @@ export default function TruckParkingMapEnhanced() {
   const [showMunicipalities, setShowMunicipalities] = useState(false);
   const [provinces, setProvinces] = useState<any>(null);
   const [municipalities, setMunicipalities] = useState<any>(null);
+  const [viewport, setViewport] = useState<LatLngBounds | null>(null);
+  const [isLoadingData, setIsLoadingData] = useState(false);
   const geoJsonLayerRef = useRef<L.GeoJSON | null>(null);
+  const markerClusterGroupRef = useRef<L.MarkerClusterGroup | null>(null);
+  const ndwClusterGroupRef = useRef<L.MarkerClusterGroup | null>(null);
+  const euClusterGroupRef = useRef<L.MarkerClusterGroup | null>(null);
 
-  useEffect(() => {
-    console.log("Fetching enriched truck parking data...");
-    fetch("/truck_parking_enriched.json")
-      .then((res) => {
-        console.log("Response status:", res.status);
-        return res.json();
-      })
-      .then((enrichedData: EnrichedFeature[]) => {
-        console.log("Enriched data loaded:", {
-          totalFeatures: enrichedData.length,
-          firstFeature: enrichedData[0],
-        });
+  // Base layer state
+  const [baseLayer, setBaseLayer] = useState("osm");
 
-        // Transform the data to add facility_type field
-        const transformedFeatures = enrichedData.map((feature) => {
-          let facility_type = "rest_area";
-          if (feature.classification.is_truck_parking) {
-            facility_type = "truck_parking";
-          } else if (feature.classification.is_service_area) {
-            facility_type = "service_area";
-          } else if (feature.classification.is_rest_area) {
-            facility_type = "rest_area";
-          }
+  // Zoom to location state
+  const [flyToTarget, setFlyToTarget] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
 
-          return {
-            ...feature,
-            facility_type,
-          };
-        });
+  // NDW real-time data state
+  const [ndwData, setNdwData] = useState<NDWEnrichedFacility[] | null>(null);
+  const [showNdwLayer, setShowNdwLayer] = useState(true);
+  const [ndwLastUpdated, setNdwLastUpdated] = useState<string | null>(null);
+  const [isRefreshingNdw, setIsRefreshingNdw] = useState(false);
+  const ndwGeoJsonLayerRef = useRef<L.GeoJSON | null>(null);
 
-        console.log("Data transformed");
-        setData(transformedFeatures);
+  // Zenodo data state (Fraunhofer ISI - 19,713 facilities)
+  const [zenodoData, setZenodoData] = useState<any[] | null>(null);
+  const [showZenodoLayer, setShowZenodoLayer] = useState(false); // Off by default (19k+ markers)
+  const [zenodoLastUpdated, setZenodoLastUpdated] = useState<string | null>(null);
+  const [isRefreshingZenodo, setIsRefreshingZenodo] = useState(false);
+  const zenodoGeoJsonLayerRef = useRef<L.GeoJSON | null>(null);
 
-        // Calculate stats
-        const statsObj = {
-          total: transformedFeatures.length,
-          truck_parking: 0,
-          service_area: 0,
-          rest_area: 0,
-        };
+  // Detected parking spaces overlay state
+  const [parkingSpacesOverlay, setParkingSpacesOverlay] = useState<any>(null);
+  const [showParkingSpaces, setShowParkingSpaces] = useState(false);
 
-        transformedFeatures.forEach((feature) => {
-          const type = feature.facility_type as keyof typeof statsObj;
-          if (type && type in statsObj) {
-            statsObj[type]++;
-          }
-        });
-
-        console.log("Stats calculated:", statsObj);
-        setStats(statsObj);
-      })
-      .catch((error) => console.error("Error loading data:", error));
-  }, []);
-
-  // Fetch administrative boundaries
-  useEffect(() => {
-    // Simplified Netherlands province boundaries (12 provinces)
-    const simplifiedProvinces = {
-      type: "FeatureCollection",
-      features: [
-        // We'll use a public API to get these boundaries
-      ]
+  // Location search state
+  const [locationSearch, setLocationSearch] = useState("");
+  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState<{
+    type: 'province' | 'municipality';
+    name: string;
+    stats?: {
+      total: number;
+      truck_parking: number;
+      service_area: number;
+      rest_area: number;
+      detected_parking_spaces: number;
     };
+  } | null>(null);
 
-    // For now, we'll fetch from a public API
-    fetch("https://cartomap.github.io/nl/wgs84/provincie_2020.geojson")
-      .then((res) => res.json())
-      .then((data) => {
-        console.log("Provinces loaded:", data);
-        setProvinces(data);
-      })
-      .catch((error) => {
-        console.error("Error loading provinces:", error);
-        // Fallback to basic provinces if fetch fails
+  // Fetch facilities data based on viewport and filters
+  const fetchFacilities = useCallback(async () => {
+    if (!viewport) return;
+
+    try {
+      setIsLoadingData(true);
+      const bounds = viewport;
+      const boundsParam = `${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}`;
+
+      const activeTypes = Object.entries(filters)
+        .filter(([_, enabled]) => enabled)
+        .map(([type]) => type);
+
+      const params = new URLSearchParams({
+        bounds: boundsParam,
+        types: activeTypes.join(','),
+        search: searchTerm,
+        limit: '2000', // Load more at once to reduce requests
       });
 
-    fetch("https://cartomap.github.io/nl/wgs84/gemeente_2020.geojson")
-      .then((res) => res.json())
-      .then((data) => {
-        console.log("Municipalities loaded:", data);
-        setMunicipalities(data);
-      })
-      .catch((error) => {
-        console.error("Error loading municipalities:", error);
+      const response = await fetch(`/api/facilities?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch facilities');
+
+      const result = await response.json();
+
+      console.log("Facilities loaded:", {
+        total: result.total,
+        loaded: result.facilities.length,
+        viewport: boundsParam,
       });
+
+      setData(result.facilities);
+      setStats(result.stats);
+    } catch (error) {
+      console.error("Error loading facilities:", error);
+    } finally {
+      setIsLoadingData(false);
+    }
+  }, [viewport, filters, searchTerm]);
+
+  // Fetch data when viewport or filters change (with debouncing)
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      fetchFacilities();
+    }, 500); // Debounce by 500ms to avoid excessive requests during panning/zooming
+
+    return () => clearTimeout(timeoutId);
+  }, [fetchFacilities]);
+
+  // Fetch NDW real-time data
+  const fetchNdwData = async () => {
+    try {
+      setIsRefreshingNdw(true);
+      const response = await fetch("/api/ndw");
+      if (!response.ok) throw new Error("Failed to fetch NDW data");
+      const ndwResponse: NDWDataResponse = await response.json();
+      setNdwData(ndwResponse.facilities);
+      setNdwLastUpdated(ndwResponse.lastUpdated);
+      console.log("NDW data loaded:", {
+        totalFacilities: ndwResponse.totalFacilities,
+        withLiveStatus: ndwResponse.facilities.filter(f => f.liveStatus).length,
+      });
+    } catch (error) {
+      console.error("Error fetching NDW data:", error);
+    } finally {
+      setIsRefreshingNdw(false);
+    }
+  };
+
+  useEffect(() => {
+    // Initial fetch
+    fetchNdwData();
+
+    // Auto-refresh every minute (NDW updates every minute)
+    const interval = setInterval(fetchNdwData, 60000);
+    return () => clearInterval(interval);
   }, []);
+
+  // Fetch Zenodo data
+  const fetchZenodoData = async () => {
+    try {
+      setIsRefreshingZenodo(true);
+      const response = await fetch("/api/zenodo");
+      if (!response.ok) throw new Error("Failed to fetch Zenodo data");
+      const zenodoResponse = await response.json();
+      setZenodoData(zenodoResponse.facilities);
+      setZenodoLastUpdated(zenodoResponse.lastUpdated);
+      console.log("Zenodo data loaded:", {
+        totalFacilities: zenodoResponse.totalFacilities,
+        countries: zenodoResponse.countries,
+      });
+    } catch (error) {
+      console.error("Error fetching Zenodo data:", error);
+    } finally {
+      setIsRefreshingZenodo(false);
+    }
+  };
+
+  useEffect(() => {
+    // Only fetch when layer is enabled (to save bandwidth - 19k+ facilities)
+    if (showZenodoLayer && !zenodoData) {
+      fetchZenodoData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showZenodoLayer]);
+
+  // Lazy load administrative boundaries only when enabled
+  useEffect(() => {
+    if (showProvinces && !provinces) {
+      console.log("Loading provinces...");
+      fetch("https://cartomap.github.io/nl/wgs84/provincie_2020.geojson")
+        .then((res) => res.json())
+        .then((data) => {
+          console.log("Provinces loaded");
+          setProvinces(data);
+        })
+        .catch((error) => {
+          console.error("Error loading provinces:", error);
+        });
+    }
+  }, [showProvinces, provinces]);
+
+  useEffect(() => {
+    if (showMunicipalities && !municipalities) {
+      console.log("Loading municipalities...");
+      fetch("https://cartomap.github.io/nl/wgs84/gemeente_2020.geojson")
+        .then((res) => res.json())
+        .then((data) => {
+          console.log("Municipalities loaded");
+          setMunicipalities(data);
+        })
+        .catch((error) => {
+          console.error("Error loading municipalities:", error);
+        });
+    }
+  }, [showMunicipalities, municipalities]);
+
+  // Lazy load detected parking spaces overlay only when enabled
+  useEffect(() => {
+    if (showParkingSpaces && !parkingSpacesOverlay) {
+      console.log("Loading parking spaces overlay...");
+      fetch("/parking_spaces_overlay.geojson")
+        .then((res) => res.json())
+        .then((data) => {
+          console.log("Parking spaces overlay loaded");
+          setParkingSpacesOverlay(data);
+        })
+        .catch((error) => {
+          console.error("Error loading parking spaces overlay:", error);
+        });
+    }
+  }, [showParkingSpaces, parkingSpacesOverlay]);
+
+  // Handle location selection after boundaries are loaded
+  useEffect(() => {
+    if (selectedLocation && !selectedLocation.stats && data) {
+      const boundaryData = selectedLocation.type === 'province' ? provinces : municipalities;
+      if (boundaryData) {
+        const feature = boundaryData.features.find(
+          (f: any) => f.properties?.name?.toLowerCase() === selectedLocation.name.toLowerCase()
+        );
+
+        if (feature) {
+          const geoJsonLayer = L.geoJSON(feature);
+          const bounds = geoJsonLayer.getBounds();
+
+          setFlyToTarget({
+            lat: bounds.getCenter().lat,
+            lng: bounds.getCenter().lng,
+            zoom: selectedLocation.type === 'province' ? 9 : 11,
+          });
+
+          const facilitiesInLocation = data?.filter((f) =>
+            selectedLocation.type === 'province'
+              ? f.location?.province?.toLowerCase() === selectedLocation.name.toLowerCase()
+              : f.location?.municipality?.toLowerCase() === selectedLocation.name.toLowerCase()
+          ) || [];
+
+          const detectedSpaces = parkingSpacesOverlay?.features?.filter((f: any) =>
+            facilitiesInLocation.some(facility =>
+              Math.abs(facility.latitude - f.geometry.coordinates[1]) < 0.001 &&
+              Math.abs(facility.longitude - f.geometry.coordinates[0]) < 0.001
+            )
+          )?.length || 0;
+
+          setSelectedLocation({
+            ...selectedLocation,
+            stats: {
+              total: facilitiesInLocation.length,
+              truck_parking: facilitiesInLocation.filter(f => f.facility_type === 'truck_parking').length,
+              service_area: facilitiesInLocation.filter(f => f.facility_type === 'service_area').length,
+              rest_area: facilitiesInLocation.filter(f => f.facility_type === 'rest_area').length,
+              detected_parking_spaces: detectedSpaces,
+            },
+          });
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [provinces, municipalities, data, parkingSpacesOverlay]);
 
   const center: LatLngExpression = [52.1326, 5.2913]; // Center of Netherlands
   const initialZoom = 8;
@@ -201,37 +429,172 @@ export default function TruckParkingMapEnhanced() {
     setFilters((prev) => ({ ...prev, [type]: !prev[type] }));
   };
 
-  const filteredData = data
-    ? data.filter(
-        (feature) =>
-          filters[feature.facility_type as keyof typeof filters] &&
-          (searchTerm === "" ||
-            feature.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            feature.location?.municipality?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            feature.location?.province?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            feature.location?.highway?.toLowerCase().includes(searchTerm.toLowerCase()))
-      )
-    : [];
+  // Data is already filtered on the server, so we just use it directly
+  const filteredData = data || [];
 
-  // Calculate radius based on zoom level
-  const getMarkerRadius = (zoomLevel: number) => {
+  // Filter NDW data by viewport for better performance
+  const filteredNdwData = useMemo(() => {
+    if (!ndwData || !viewport) return ndwData || [];
+
+    return ndwData.filter((facility) => {
+      const lat = facility.location.latitude;
+      const lng = facility.location.longitude;
+      return lat >= viewport.getSouth() && lat <= viewport.getNorth() &&
+             lng >= viewport.getWest() && lng <= viewport.getEast();
+    });
+  }, [ndwData, viewport]);
+
+  // Filter Zenodo data by viewport for better performance
+  const filteredZenodoData = useMemo(() => {
+    if (!zenodoData || !viewport) return zenodoData || [];
+
+    return zenodoData.filter((facility: any) => {
+      const lat = facility.location.latitude;
+      const lng = facility.location.longitude;
+      return lat >= viewport.getSouth() && lat <= viewport.getNorth() &&
+             lng >= viewport.getWest() && lng <= viewport.getEast();
+    });
+  }, [zenodoData, viewport]);
+
+  // Get unique municipalities and provinces from data
+  const locationOptions = useMemo(() => {
+    if (!data) return { provinces: [], municipalities: [] };
+
+    const provincesSet = new Set<string>();
+    const municipalitiesSet = new Set<string>();
+
+    data.forEach((facility) => {
+      if (facility.location?.province) {
+        provincesSet.add(facility.location.province);
+      }
+      if (facility.location?.municipality) {
+        municipalitiesSet.add(facility.location.municipality);
+      }
+    });
+
+    return {
+      provinces: Array.from(provincesSet).sort(),
+      municipalities: Array.from(municipalitiesSet).sort(),
+    };
+  }, [data]);
+
+  // Filter location options based on search
+  const filteredLocationOptions = useMemo(() => {
+    const searchLower = locationSearch.toLowerCase();
+    return {
+      provinces: locationOptions.provinces.filter((p) => p.toLowerCase().includes(searchLower)),
+      municipalities: locationOptions.municipalities.filter((m) => m.toLowerCase().includes(searchLower)),
+    };
+  }, [locationOptions, locationSearch]);
+
+  // Handle location selection
+  const handleLocationSelect = useCallback((type: 'province' | 'municipality', name: string) => {
+    setLocationSearch(name);
+    setShowLocationDropdown(false);
+
+    // Find the boundary for this location
+    const boundaryData = type === 'province' ? provinces : municipalities;
+    if (!boundaryData) {
+      // Load the boundary data first
+      if (type === 'province') {
+        setShowProvinces(true);
+      } else {
+        setShowMunicipalities(true);
+      }
+      // Set a flag to zoom after data loads
+      setSelectedLocation({ type, name });
+      return;
+    }
+
+    const feature = boundaryData.features.find(
+      (f: any) => f.properties?.name?.toLowerCase() === name.toLowerCase()
+    );
+
+    if (feature) {
+      // Calculate bounds from the feature geometry
+      const geoJsonLayer = L.geoJSON(feature);
+      const bounds = geoJsonLayer.getBounds();
+
+      // Zoom to the location
+      setFlyToTarget({
+        lat: bounds.getCenter().lat,
+        lng: bounds.getCenter().lng,
+        zoom: type === 'province' ? 9 : 11,
+      });
+
+      // Calculate stats for this location
+      const facilitiesInLocation = data?.filter((f) =>
+        type === 'province'
+          ? f.location?.province?.toLowerCase() === name.toLowerCase()
+          : f.location?.municipality?.toLowerCase() === name.toLowerCase()
+      ) || [];
+
+      const detectedSpaces = parkingSpacesOverlay?.features?.filter((f: any) =>
+        facilitiesInLocation.some(facility =>
+          Math.abs(facility.latitude - f.geometry.coordinates[1]) < 0.001 &&
+          Math.abs(facility.longitude - f.geometry.coordinates[0]) < 0.001
+        )
+      )?.length || 0;
+
+      setSelectedLocation({
+        type,
+        name,
+        stats: {
+          total: facilitiesInLocation.length,
+          truck_parking: facilitiesInLocation.filter(f => f.facility_type === 'truck_parking').length,
+          service_area: facilitiesInLocation.filter(f => f.facility_type === 'service_area').length,
+          rest_area: facilitiesInLocation.filter(f => f.facility_type === 'rest_area').length,
+          detected_parking_spaces: detectedSpaces,
+        },
+      });
+    }
+  }, [provinces, municipalities, data, parkingSpacesOverlay]);
+
+  // Calculate radius based on zoom level (memoized)
+  const getMarkerRadius = useCallback((zoomLevel: number) => {
     if (zoomLevel <= 7) return 4;
     if (zoomLevel <= 9) return 6;
     if (zoomLevel <= 11) return 8;
     if (zoomLevel <= 13) return 10;
     return 12;
-  };
+  }, []);
+
+  // Get color based on occupancy status (memoized)
+  const getOccupancyColor = useCallback((facility: NDWEnrichedFacility) => {
+    if (!facility.liveStatus) return "#94a3b8"; // Gray for no status
+
+    const { status, occupancy } = facility.liveStatus;
+
+    if (status === "full") return "#dc2626"; // Red for full
+    if (status === "unknown") return "#94a3b8"; // Gray for unknown
+
+    // Green to yellow to red gradient based on occupancy percentage
+    if (occupancy < 50) return "#10b981"; // Green - plenty of space
+    if (occupancy < 75) return "#f59e0b"; // Orange - getting full
+    return "#ef4444"; // Red - nearly full
+  }, []);
 
   const handleFacilityClick = (facilityId: string) => {
     setSelectedFacility(facilityId);
     const facility = filteredData.find((f) => f.id === facilityId);
-    if (facility && geoJsonLayerRef.current) {
-      // Find the layer and open popup
-      geoJsonLayerRef.current.eachLayer((layer: any) => {
-        if (layer.feature?.id === facilityId) {
-          layer.openPopup();
-        }
+    if (facility) {
+      // Zoom to the facility location
+      setFlyToTarget({
+        lat: facility.latitude,
+        lng: facility.longitude,
+        zoom: 16,
       });
+
+      // Open popup after a short delay to allow map to zoom first
+      if (geoJsonLayerRef.current) {
+        setTimeout(() => {
+          geoJsonLayerRef.current?.eachLayer((layer: any) => {
+            if (layer.feature?.id === facilityId) {
+              layer.openPopup();
+            }
+          });
+        }, 1600); // Slightly longer than the flyTo duration
+      }
     }
   };
 
@@ -383,6 +746,116 @@ export default function TruckParkingMapEnhanced() {
             </div>
           </div>
 
+          {/* NDW Real-Time Data */}
+          <div className="p-4 border-b bg-blue-50/50">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-sm">NDW Live Data</h3>
+              <button
+                onClick={fetchNdwData}
+                disabled={isRefreshingNdw}
+                className="p-1 hover:bg-blue-100 rounded disabled:opacity-50"
+                title="Refresh NDW data"
+              >
+                <RefreshCw className={`h-4 w-4 ${isRefreshingNdw ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="ndw_layer"
+                  checked={showNdwLayer}
+                  onCheckedChange={() => setShowNdwLayer(!showNdwLayer)}
+                />
+                <Label
+                  htmlFor="ndw_layer"
+                  className="flex items-center gap-2 cursor-pointer text-sm"
+                >
+                  📡 Real-Time Occupancy
+                  <Badge variant="secondary" className="ml-auto">
+                    {filteredNdwData?.length || 0}
+                  </Badge>
+                </Label>
+              </div>
+              {ndwLastUpdated && (
+                <div className="text-xs text-muted-foreground pl-6">
+                  Updated: {new Date(ndwLastUpdated).toLocaleTimeString()}
+                </div>
+              )}
+              <div className="text-xs space-y-1 pl-6">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                  <span>&lt;50% occupied</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-orange-500" />
+                  <span>50-75% occupied</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-red-500" />
+                  <span>&gt;75% or full</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Zenodo Data */}
+          <div className="p-4 border-b">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-sm">Zenodo Europe-Wide</h3>
+              <button
+                onClick={fetchZenodoData}
+                disabled={isRefreshingZenodo}
+                className="p-1 hover:bg-gray-100 rounded disabled:opacity-50"
+                title="Refresh Zenodo data"
+              >
+                <RefreshCw className={`h-4 w-4 ${isRefreshingZenodo ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="zenodo_layer"
+                  checked={showZenodoLayer}
+                  onCheckedChange={() => setShowZenodoLayer(!showZenodoLayer)}
+                />
+                <Label
+                  htmlFor="zenodo_layer"
+                  className="flex items-center gap-2 cursor-pointer text-sm"
+                >
+                  🗺️ 19k+ Facilities
+                  <Badge variant="secondary" className="ml-auto">
+                    {filteredZenodoData?.length || 0}
+                  </Badge>
+                </Label>
+              </div>
+              {zenodoLastUpdated && (
+                <div className="text-xs text-muted-foreground pl-6">
+                  Loaded: {new Date(zenodoLastUpdated).toLocaleTimeString()}
+                </div>
+              )}
+              {isRefreshingZenodo && !zenodoData && (
+                <div className="text-xs text-blue-600 pl-6">
+                  📥 Loading 19k+ facilities...
+                </div>
+              )}
+              {!isRefreshingZenodo && !zenodoData && showZenodoLayer && (
+                <div className="text-xs text-amber-600 pl-6">
+                  ⚠️ Click refresh to load 1.6 MB dataset
+                </div>
+              )}
+              {!zenodoData && !showZenodoLayer && (
+                <div className="text-xs text-muted-foreground pl-6">
+                  Enable to load Fraunhofer ISI dataset (EU-27, EFTA, UK)
+                </div>
+              )}
+              {zenodoData && (
+                <div className="text-xs text-green-600 pl-6">
+                  ✓ {zenodoData.length.toLocaleString()} total facilities loaded
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Administrative Boundaries */}
           <div className="p-4">
             <h3 className="font-semibold mb-3 text-sm">Administrative Boundaries</h3>
@@ -403,6 +876,11 @@ export default function TruckParkingMapEnhanced() {
                   </Badge>
                 </Label>
               </div>
+              {showProvinces && zoom < 7 && (
+                <div className="text-xs text-muted-foreground pl-6">
+                  Zoom in to see borders (zoom 7+)
+                </div>
+              )}
 
               <div className="flex items-center space-x-2">
                 <Checkbox
@@ -420,6 +898,33 @@ export default function TruckParkingMapEnhanced() {
                   </Badge>
                 </Label>
               </div>
+              {showMunicipalities && zoom < 10 && (
+                <div className="text-xs text-muted-foreground pl-6">
+                  Zoom in to see borders (zoom 10+)
+                </div>
+              )}
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="parkingSpaces"
+                  checked={showParkingSpaces}
+                  onCheckedChange={() => setShowParkingSpaces(!showParkingSpaces)}
+                />
+                <Label
+                  htmlFor="parkingSpaces"
+                  className="flex items-center gap-2 cursor-pointer text-sm"
+                >
+                  🅿️ Detected Parking Spaces
+                  <Badge variant="outline" className="ml-auto bg-orange-100 text-orange-800">
+                    {parkingSpacesOverlay?.features?.length || 0}
+                  </Badge>
+                </Label>
+              </div>
+              {showParkingSpaces && zoom < 13 && (
+                <div className="text-xs text-muted-foreground pl-6">
+                  Zoom in to see spaces (zoom 13+)
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -437,25 +942,170 @@ export default function TruckParkingMapEnhanced() {
 
       {/* Main Map Area */}
       <div className="flex-1 flex flex-col">
+        {/* Location Search Bar */}
+        <div className="bg-background border-b p-3 z-[1000] relative">
+          <div className="max-w-2xl mx-auto relative">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search by municipality or province..."
+                value={locationSearch}
+                onChange={(e) => {
+                  setLocationSearch(e.target.value);
+                  setShowLocationDropdown(true);
+                }}
+                onFocus={() => setShowLocationDropdown(true)}
+                className="pl-10 pr-10 text-base"
+              />
+              {locationSearch && (
+                <button
+                  onClick={() => {
+                    setLocationSearch("");
+                    setSelectedLocation(null);
+                    setShowLocationDropdown(false);
+                  }}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 hover:bg-gray-100 rounded"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Dropdown with location options */}
+            {showLocationDropdown && locationSearch && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-background border rounded-lg shadow-lg max-h-96 overflow-y-auto z-50">
+                {filteredLocationOptions.provinces.length > 0 && (
+                  <div>
+                    <div className="px-3 py-2 text-xs font-semibold text-muted-foreground bg-gray-50 sticky top-0">
+                      Provinces
+                    </div>
+                    {filteredLocationOptions.provinces.map((province) => (
+                      <button
+                        key={`province-${province}`}
+                        onClick={() => handleLocationSelect('province', province)}
+                        className="w-full text-left px-4 py-2 hover:bg-blue-50 flex items-center gap-2 text-sm"
+                      >
+                        <MapPin className="h-4 w-4 text-blue-600" />
+                        <span>{province}</span>
+                        <Badge variant="secondary" className="ml-auto">
+                          Province
+                        </Badge>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {filteredLocationOptions.municipalities.length > 0 && (
+                  <div>
+                    <div className="px-3 py-2 text-xs font-semibold text-muted-foreground bg-gray-50 sticky top-0">
+                      Municipalities
+                    </div>
+                    {filteredLocationOptions.municipalities.map((municipality) => (
+                      <button
+                        key={`municipality-${municipality}`}
+                        onClick={() => handleLocationSelect('municipality', municipality)}
+                        className="w-full text-left px-4 py-2 hover:bg-blue-50 flex items-center gap-2 text-sm"
+                      >
+                        <MapPin className="h-4 w-4 text-green-600" />
+                        <span>{municipality}</span>
+                        <Badge variant="secondary" className="ml-auto">
+                          Municipality
+                        </Badge>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {filteredLocationOptions.provinces.length === 0 &&
+                  filteredLocationOptions.municipalities.length === 0 && (
+                    <div className="px-4 py-3 text-sm text-muted-foreground text-center">
+                      No locations found
+                    </div>
+                  )}
+              </div>
+            )}
+
+            {/* Selected location stats */}
+            {selectedLocation?.stats && (
+              <div className="mt-3 grid grid-cols-5 gap-2">
+                <Card className="p-3 bg-blue-50 border-blue-200">
+                  <div className="text-2xl font-bold text-blue-900">
+                    {selectedLocation.stats.total}
+                  </div>
+                  <div className="text-xs text-blue-700 mt-1">Total Facilities</div>
+                </Card>
+                <Card className="p-3 bg-red-50 border-red-200">
+                  <div className="text-2xl font-bold text-red-900">
+                    {selectedLocation.stats.truck_parking}
+                  </div>
+                  <div className="text-xs text-red-700 mt-1">Truck Parking</div>
+                </Card>
+                <Card className="p-3 bg-blue-50 border-blue-200">
+                  <div className="text-2xl font-bold text-blue-900">
+                    {selectedLocation.stats.service_area}
+                  </div>
+                  <div className="text-xs text-blue-700 mt-1">Service Areas</div>
+                </Card>
+                <Card className="p-3 bg-green-50 border-green-200">
+                  <div className="text-2xl font-bold text-green-900">
+                    {selectedLocation.stats.rest_area}
+                  </div>
+                  <div className="text-xs text-green-700 mt-1">Rest Areas</div>
+                </Card>
+                <Card className="p-3 bg-orange-50 border-orange-200">
+                  <div className="text-2xl font-bold text-orange-900">
+                    {selectedLocation.stats.detected_parking_spaces}
+                  </div>
+                  <div className="text-xs text-orange-700 mt-1">Detected Spaces</div>
+                </Card>
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Map */}
         <div className="flex-1 relative">
-          {data ? (
-            <MapContainer
+          {/* Map Style Selector Overlay */}
+          <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2 items-end">
+            <div className="bg-white border rounded-lg shadow-lg overflow-hidden">
+              <select
+                value={baseLayer}
+                onChange={(e) => setBaseLayer(e.target.value)}
+                className="px-3 py-2 text-sm font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                {Object.entries(BASE_LAYERS).map(([key, layer]) => (
+                  <option key={key} value={key}>
+                    {layer.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {isLoadingData && (
+              <div className="bg-white border rounded-lg px-4 py-2 shadow-lg">
+                <div className="flex items-center gap-2">
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  <span className="text-sm">Loading facilities...</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <MapContainer
               center={center}
               zoom={initialZoom}
               className="h-full w-full"
               style={{ background: "#f0f0f0" }}
             >
-              <ZoomHandler onZoomChange={setZoom} />
+              <MapEventHandler onZoomChange={setZoom} onViewportChange={setViewport} />
+              <FlyToLocation target={flyToTarget} />
               <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                key={baseLayer}
+                attribution={BASE_LAYERS[baseLayer as keyof typeof BASE_LAYERS].attribution}
+                url={BASE_LAYERS[baseLayer as keyof typeof BASE_LAYERS].url}
               />
               {filteredData.length > 0 && (
                 <GeoJSON
                   ref={geoJsonLayerRef}
-                  key={`${JSON.stringify(filters)}-${zoom}-${searchTerm}`}
+                  key={`facilities-${JSON.stringify(filters)}-${searchTerm}-${filteredData.length}`}
                   data={{
                     type: "FeatureCollection",
                     features: filteredData.map((f) => ({
@@ -602,6 +1252,7 @@ export default function TruckParkingMapEnhanced() {
                             <div>${props.latitude.toFixed(5)}, ${props.longitude.toFixed(5)}</div>
                             <div>${new Date(props.last_updated).toLocaleDateString()}</div>
                             <div style="color: #3b82f6; cursor: pointer;" onclick="window.open('https://www.openstreetmap.org/${props.osm_type}/${props.osm_id}', '_blank')">View on OSM →</div>
+                            <div style="color: #10b981; cursor: pointer; margin-top: 2px;" onclick="window.open('https://www.google.com/maps?q=&layer=c&cbll=${props.latitude},${props.longitude}', '_blank')">📍 Street View →</div>
                           </div>
                         </div>
                       </div>
@@ -615,8 +1266,250 @@ export default function TruckParkingMapEnhanced() {
                 />
               )}
 
-              {/* Provincial Boundaries */}
-              {showProvinces && provinces && (
+              {/* NDW Real-Time Layer */}
+              {showNdwLayer && filteredNdwData && filteredNdwData.length > 0 && (
+                <GeoJSON
+                  ref={ndwGeoJsonLayerRef}
+                  key={`ndw-${ndwLastUpdated}-${filteredNdwData.length}`}
+                  data={{
+                    type: "FeatureCollection",
+                    features: filteredNdwData.map((facility) => ({
+                      type: "Feature",
+                      id: facility.id,
+                      geometry: {
+                        type: "Point",
+                        coordinates: [facility.location.longitude, facility.location.latitude],
+                      },
+                      properties: facility,
+                    })),
+                  } as any}
+                  pointToLayer={(feature, latlng) => {
+                    const props = feature.properties as NDWEnrichedFacility;
+                    const color = getOccupancyColor(props);
+
+                    return L.circleMarker(latlng, {
+                      radius: getMarkerRadius(zoom) + 2, // Slightly larger for NDW markers
+                      fillColor: color,
+                      color: "#fff",
+                      weight: 2,
+                      opacity: 1,
+                      fillOpacity: 0.85,
+                    });
+                  }}
+                  onEachFeature={(feature, layer) => {
+                    const facility = feature.properties as NDWEnrichedFacility;
+                    const status = facility.liveStatus;
+
+                    // Build facilities list
+                    const facilitiesList = facility.facilities?.map(f => {
+                      const icons: Record<string, string> = {
+                        restaurant: "🍴",
+                        shower: "🚿",
+                        toilet: "🚻",
+                        wifi: "📶",
+                        fuel: "⛽",
+                        "fresh water": "💧",
+                        "waste disposal": "🗑️",
+                        "electric charging": "🔌",
+                        "truck wash": "🚿",
+                      };
+                      const icon = Object.keys(icons).find(key => f.toLowerCase().includes(key));
+                      return icon ? icons[icon] : null;
+                    }).filter(Boolean).join(" ") || "";
+
+                    const popupContent = `
+                      <div style="min-width: 480px; max-width: 600px; font-family: system-ui, -apple-system, sans-serif;">
+                        <!-- Header with occupancy status -->
+                        <div style="background: ${getOccupancyColor(facility)}; color: white; padding: 12px 16px; margin: -12px -12px 12px -12px; border-radius: 8px 8px 0 0;">
+                          <h3 style="margin: 0; font-size: 18px; font-weight: 600;">
+                            ${facility.name}
+                          </h3>
+                          <div style="font-size: 13px; opacity: 0.9; margin-top: 2px;">
+                            📡 NDW Live Data ${facilitiesList ? `• ${facilitiesList}` : ""}
+                          </div>
+                        </div>
+
+                        <!-- Real-Time Occupancy -->
+                        ${status ? `
+                        <div style="background: ${status.status === 'full' ? '#fee2e2' : status.occupancy > 75 ? '#fed7aa' : '#d1fae5'}; padding: 12px; border-radius: 6px; margin-bottom: 16px; border-left: 4px solid ${getOccupancyColor(facility)};">
+                          <div style="font-weight: 700; font-size: 16px; margin-bottom: 8px; color: #1f2937;">
+                            ${status.status === 'full' ? '🚫 FULL' : status.status === 'spacesAvailable' ? '✅ Spaces Available' : '❓ Status Unknown'}
+                          </div>
+                          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; font-size: 13px;">
+                            <div>
+                              <div style="font-size: 24px; font-weight: 700; color: #10b981;">${status.vacantSpaces}</div>
+                              <div style="color: #6b7280;">Vacant</div>
+                            </div>
+                            <div>
+                              <div style="font-size: 24px; font-weight: 700; color: #ef4444;">${status.occupiedSpaces}</div>
+                              <div style="color: #6b7280;">Occupied</div>
+                            </div>
+                            <div>
+                              <div style="font-size: 24px; font-weight: 700; color: #3b82f6;">${status.occupancy.toFixed(0)}%</div>
+                              <div style="color: #6b7280;">Full</div>
+                            </div>
+                          </div>
+                          <div style="margin-top: 8px; font-size: 11px; color: #6b7280;">
+                            Last updated: ${new Date(status.timestamp).toLocaleString()}
+                          </div>
+                        </div>
+                        ` : '<div style="background: #f3f4f6; padding: 12px; border-radius: 6px; margin-bottom: 16px; color: #6b7280;">No live status data available</div>'}
+
+                        <!-- Main Content Grid -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; font-size: 13px;">
+
+                          <!-- Left Column -->
+                          <div>
+                            ${facility.capacity.totalSpaces > 0 ? `
+                            <div style="background: #f8fafc; padding: 10px; border-radius: 6px; margin-bottom: 12px;">
+                              <div style="font-weight: 600; margin-bottom: 6px; color: #334155;">🚛 Total Capacity</div>
+                              <div style="margin-bottom: 4px;">Total: <strong>${facility.capacity.totalSpaces}</strong> spaces</div>
+                              ${facility.capacity.lorrySpaces ? `<div style="margin-bottom: 4px;">Lorry: <strong>${facility.capacity.lorrySpaces}</strong></div>` : ""}
+                              ${facility.capacity.refrigeratedSpaces ? `<div style="margin-bottom: 4px;">Refrigerated: <strong>${facility.capacity.refrigeratedSpaces}</strong></div>` : ""}
+                              ${facility.capacity.heavyHaulSpaces ? `<div>Heavy Haul: <strong>${facility.capacity.heavyHaulSpaces}</strong></div>` : ""}
+                            </div>
+                            ` : ""}
+
+                            ${facility.address ? `
+                            <div style="margin-bottom: 12px;">
+                              <div style="font-weight: 600; margin-bottom: 6px; color: #334155;">📍 Address</div>
+                              ${facility.address.street ? `<div>${facility.address.street} ${facility.address.houseNumber || ""}</div>` : ""}
+                              ${facility.address.postalCode ? `<div>${facility.address.postalCode} ${facility.address.city || ""}</div>` : ""}
+                            </div>
+                            ` : ""}
+
+                            ${facility.access ? `
+                            <div style="margin-bottom: 12px;">
+                              <div style="font-weight: 600; margin-bottom: 6px; color: #334155;">🛣️ Access</div>
+                              ${facility.access.motorway ? `<div>Motorway: ${facility.access.motorway}</div>` : ""}
+                              ${facility.access.junction ? `<div>Junction: ${facility.access.junction}</div>` : ""}
+                              ${facility.access.distance ? `<div>Distance: ${facility.access.distance}m</div>` : ""}
+                            </div>
+                            ` : ""}
+                          </div>
+
+                          <!-- Right Column -->
+                          <div>
+                            ${facility.operator ? `
+                            <div style="background: #f8fafc; padding: 10px; border-radius: 6px; margin-bottom: 12px;">
+                              <div style="font-weight: 600; margin-bottom: 6px; color: #334155;">👔 Operator</div>
+                              ${facility.operator.name ? `<div style="margin-bottom: 4px;"><strong>${facility.operator.name}</strong></div>` : ""}
+                              ${facility.operator.email ? `<div style="margin-bottom: 4px; font-size: 11px;">${facility.operator.email}</div>` : ""}
+                              ${facility.operator.phone ? `<div style="font-size: 11px;">${facility.operator.phone}</div>` : ""}
+                            </div>
+                            ` : ""}
+
+                            ${facility.pricing ? `
+                            <div style="background: #f8fafc; padding: 10px; border-radius: 6px; margin-bottom: 12px;">
+                              <div style="font-weight: 600; margin-bottom: 6px; color: #334155;">💰 Pricing</div>
+                              ${facility.pricing.rate ? `<div style="margin-bottom: 4px;">Rate: <strong>${facility.pricing.currency || "€"}${facility.pricing.rate}</strong>/hour</div>` : ""}
+                              ${facility.pricing.website ? `<div style="font-size: 11px;"><a href="${facility.pricing.website}" target="_blank" style="color: #3b82f6;">Visit website →</a></div>` : ""}
+                            </div>
+                            ` : ""}
+
+                            ${facility.security ? `
+                            <div style="background: #f8fafc; padding: 10px; border-radius: 6px; margin-bottom: 12px;">
+                              <div style="font-weight: 600; margin-bottom: 6px; color: #334155;">🔒 Security</div>
+                              ${facility.security.certified ? `<div style="margin-bottom: 4px; color: #10b981; font-weight: 600;">✓ Level ${facility.security.certificationLevel || ""} Certified</div>` : ""}
+                              <div style="font-size: 11px; line-height: 1.6;">
+                                ${facility.security.cctv ? "• CCTV<br>" : ""}
+                                ${facility.security.fencing ? "• Fencing<br>" : ""}
+                                ${facility.security.lighting ? "• Lighting<br>" : ""}
+                                ${facility.security.guards24h ? "• 24h Guards<br>" : ""}
+                                ${facility.security.patrols ? "• Security Patrols" : ""}
+                              </div>
+                            </div>
+                            ` : ""}
+
+                            ${facility.facilities && facility.facilities.length > 0 ? `
+                            <div style="margin-bottom: 12px;">
+                              <div style="font-weight: 600; margin-bottom: 6px; color: #334155;">🏢 Facilities</div>
+                              <div style="font-size: 11px; line-height: 1.6;">
+                                ${facility.facilities.slice(0, 8).map(f => `• ${f}`).join("<br>")}
+                              </div>
+                            </div>
+                            ` : ""}
+                          </div>
+                        </div>
+
+                        <!-- Footer -->
+                        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #64748b; text-align: right;">
+                          <div>ID: ${facility.id}</div>
+                          <div>${facility.location.latitude.toFixed(5)}, ${facility.location.longitude.toFixed(5)}</div>
+                          <div style="color: #10b981; cursor: pointer; margin-top: 2px;" onclick="window.open('https://www.google.com/maps?q=${facility.location.latitude},${facility.location.longitude}', '_blank')">📍 Open in Maps →</div>
+                        </div>
+                      </div>
+                    `;
+                    layer.bindPopup(popupContent, { maxWidth: 600 });
+                  }}
+                />
+              )}
+
+              {/* Zenodo Layer - Europe-wide dataset */}
+              {showZenodoLayer && filteredZenodoData && filteredZenodoData.length > 0 && (
+                <GeoJSON
+                  ref={zenodoGeoJsonLayerRef}
+                  key={`zenodo-${zenodoLastUpdated}-${filteredZenodoData.length}`}
+                  data={{
+                    type: "FeatureCollection",
+                    features: filteredZenodoData.map((facility: any) => ({
+                      type: "Feature",
+                      id: facility.id,
+                      geometry: {
+                        type: "Point",
+                        coordinates: [facility.location.longitude, facility.location.latitude],
+                      },
+                      properties: facility,
+                    })),
+                  } as any}
+                  pointToLayer={(feature, latlng) => {
+                    return L.circleMarker(latlng, {
+                      radius: getMarkerRadius(zoom),
+                      fillColor: "#64748b", // Gray for Zenodo data
+                      color: "#fff",
+                      weight: 1.5,
+                      opacity: 1,
+                      fillOpacity: 0.6,
+                    });
+                  }}
+                  onEachFeature={(feature, layer) => {
+                    const facility = feature.properties as any;
+
+                    const popupContent = `
+                      <div style="min-width: 380px; max-width: 550px; font-family: system-ui, -apple-system, sans-serif;">
+                        <div style="background: #64748b; color: white; padding: 12px 16px; margin: -12px -12px 12px -12px; border-radius: 8px 8px 0 0;">
+                          <h3 style="margin: 0; font-size: 18px; font-weight: 600;">
+                            ${facility.name}
+                          </h3>
+                          <div style="font-size: 13px; opacity: 0.9; margin-top: 2px;">
+                            🗺️ ${facility.source} • ${facility.category}
+                          </div>
+                        </div>
+
+                        <div style="font-size: 13px;">
+                          <div style="background: #f8fafc; padding: 10px; border-radius: 6px; margin-bottom: 12px;">
+                            <div style="font-weight: 600; margin-bottom: 6px; color: #334155;">📍 Location</div>
+                            <div style="margin-bottom: 4px;">Country: <strong>${facility.country}</strong></div>
+                            <div>${facility.location.latitude.toFixed(5)}, ${facility.location.longitude.toFixed(5)}</div>
+                            ${facility.area ? `<div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid #e2e8f0;">Area: <strong>${Math.round(facility.area).toLocaleString()} m²</strong></div>` : ""}
+                          </div>
+
+                          <div style="font-size: 11px; color: #64748b; padding-top: 8px; border-top: 1px solid #e2e8f0;">
+                            <div style="margin-bottom: 4px;">ID: ${facility.id}</div>
+                            <div style="margin-bottom: 6px;">Source: Fraunhofer ISI Zenodo Dataset</div>
+                            <div>DOI: 10.5281/zenodo.10231359</div>
+                            <div style="color: #10b981; cursor: pointer; margin-top: 6px;" onclick="window.open('https://www.google.com/maps?q=${facility.location.latitude},${facility.location.longitude}', '_blank')">📍 View on Maps →</div>
+                          </div>
+                        </div>
+                      </div>
+                    `;
+                    layer.bindPopup(popupContent, { maxWidth: 550 });
+                  }}
+                />
+              )}
+
+              {/* Provincial Boundaries - Only show at zoom 7+ */}
+              {showProvinces && provinces && zoom >= 7 && (
                 <GeoJSON
                   data={provinces}
                   style={{
@@ -637,8 +1530,8 @@ export default function TruckParkingMapEnhanced() {
                 />
               )}
 
-              {/* Municipal Boundaries */}
-              {showMunicipalities && municipalities && (
+              {/* Municipal Boundaries - Only show at zoom 10+ */}
+              {showMunicipalities && municipalities && zoom >= 10 && (
                 <GeoJSON
                   data={municipalities}
                   style={{
@@ -658,12 +1551,36 @@ export default function TruckParkingMapEnhanced() {
                   }}
                 />
               )}
+
+              {/* Detected Parking Spaces Overlay - Only show at zoom 13+ */}
+              {showParkingSpaces && parkingSpacesOverlay && zoom >= 13 && (
+                <GeoJSON
+                  data={parkingSpacesOverlay}
+                  style={{
+                    color: "#f97316",
+                    weight: 2,
+                    fillColor: "#fb923c",
+                    fillOpacity: 0.4,
+                    opacity: 0.9,
+                  }}
+                  onEachFeature={(feature, layer) => {
+                    const props = feature.properties;
+                    const tooltipContent = `
+                      <div style="font-size: 12px;">
+                        <strong>${props.facility_name}</strong><br/>
+                        Space #${props.space_number}<br/>
+                        ${props.length_m}m × ${props.width_m}m<br/>
+                        Area: ${props.area_m2} m²
+                      </div>
+                    `;
+                    layer.bindTooltip(tooltipContent, {
+                      permanent: false,
+                      direction: "top",
+                    });
+                  }}
+                />
+              )}
             </MapContainer>
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-muted-foreground">Loading map data...</p>
-            </div>
-          )}
         </div>
       </div>
 

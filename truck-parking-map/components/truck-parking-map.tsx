@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Truck, MapPin, Search } from "lucide-react";
+import area from "@turf/area";
 
 // Fix Leaflet default icon issue with Next.js
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -325,9 +326,9 @@ export default function TruckParkingMap() {
                   let areaInfo = "";
                   if (feature.geometry.type === "Polygon" || feature.geometry.type === "MultiPolygon") {
                     try {
-                      const area = L.GeometryUtil ? L.GeometryUtil.geodesicArea(feature.geometry.coordinates[0]) : null;
-                      if (area) {
-                        areaInfo = `<p><strong>Area:</strong> ${Math.round(area)} m²</p>`;
+                      const areaInSquareMeters = area(feature.geometry);
+                      if (areaInSquareMeters) {
+                        areaInfo = `<p><strong>Area:</strong> ${Math.round(areaInSquareMeters)} m²</p>`;
                       }
                     } catch (e) {
                       // Ignore area calculation errors
