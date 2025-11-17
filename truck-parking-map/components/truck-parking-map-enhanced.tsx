@@ -11,8 +11,17 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Truck, MapPin, Search, X, RefreshCw } from "lucide-react";
+import { Truck, MapPin, Search, X, RefreshCw, Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import area from "@turf/area";
 import type { NDWEnrichedFacility, NDWDataResponse } from "@/lib/ndw-types";
 
@@ -945,31 +954,266 @@ export default function TruckParkingMapEnhanced() {
         {/* Location Search Bar */}
         <div className="bg-background border-b p-3 z-[1000] relative">
           <div className="max-w-2xl mx-auto relative">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search by municipality or province..."
-                value={locationSearch}
-                onChange={(e) => {
-                  setLocationSearch(e.target.value);
-                  setShowLocationDropdown(true);
-                }}
-                onFocus={() => setShowLocationDropdown(true)}
-                className="pl-10 pr-10 text-base"
-              />
-              {locationSearch && (
-                <button
-                  onClick={() => {
-                    setLocationSearch("");
-                    setSelectedLocation(null);
-                    setShowLocationDropdown(false);
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search by municipality or province..."
+                  value={locationSearch}
+                  onChange={(e) => {
+                    setLocationSearch(e.target.value);
+                    setShowLocationDropdown(true);
                   }}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 hover:bg-gray-100 rounded"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
+                  onFocus={() => setShowLocationDropdown(true)}
+                  className="pl-10 pr-10 text-base"
+                />
+                {locationSearch && (
+                  <button
+                    onClick={() => {
+                      setLocationSearch("");
+                      setSelectedLocation(null);
+                      setShowLocationDropdown(false);
+                    }}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 hover:bg-gray-100 rounded"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* About Button */}
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="icon" className="flex-shrink-0">
+                    <Info className="h-5 w-5" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2 text-2xl">
+                      <Truck className="h-6 w-6" />
+                      About This Application
+                    </DialogTitle>
+                    <DialogDescription>
+                      Comprehensive truck parking facility data for the Netherlands and Europe
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="space-y-6 text-sm">
+                    {/* Overview Section */}
+                    <section>
+                      <h3 className="font-semibold text-lg mb-2">Overview</h3>
+                      <p className="text-muted-foreground leading-relaxed">
+                        This interactive web application visualizes truck parking facilities (verzorgingsplaatsen)
+                        across the Netherlands and Europe. It combines multiple data sources to provide comprehensive
+                        information about rest areas, service areas, and dedicated truck parking locations along
+                        motorways and major roads.
+                      </p>
+                    </section>
+
+                    {/* Datasets Section */}
+                    <section>
+                      <h3 className="font-semibold text-lg mb-3">Data Sources</h3>
+
+                      {/* Dataset 1: OSM-based Dutch data */}
+                      <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <h4 className="font-semibold text-base mb-2 flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-blue-600" />
+                          Primary Dataset: OpenStreetMap Netherlands
+                        </h4>
+                        <div className="space-y-2 text-muted-foreground">
+                          <p>
+                            <strong>Source:</strong> OpenStreetMap (OSM) - Community-maintained geographic database
+                          </p>
+                          <p>
+                            <strong>Coverage:</strong> ~1,425 facilities across the Netherlands
+                          </p>
+                          <p>
+                            <strong>Types:</strong> Truck parking, service areas, and rest areas
+                          </p>
+                          <p>
+                            <strong>Data Quality:</strong> 44% high confidence facilities • Only 6.1% have capacity data
+                          </p>
+                          <p>
+                            <strong>Features:</strong> Includes location data (province, municipality, highway),
+                            facility classifications, amenities (fuel, restaurants, toilets), operator information,
+                            and parking capacities where available.
+                          </p>
+                          <div className="mt-2 pt-2 border-t border-blue-300">
+                            <p className="text-xs">
+                              <strong>File:</strong> truck_parking_enriched.json (2.6MB) •
+                              <strong> Updated:</strong> Regularly refreshed from OSM
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Dataset 2: NDW Real-time */}
+                      <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                        <h4 className="font-semibold text-base mb-2 flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-green-600" />
+                          NDW Real-Time Occupancy Data
+                        </h4>
+                        <div className="space-y-2 text-muted-foreground">
+                          <p>
+                            <strong>Source:</strong> Nationale Databank Wegverkeersgegevens (NDW) - Dutch National Traffic Data Bank
+                          </p>
+                          <p>
+                            <strong>Coverage:</strong> {filteredNdwData?.length || 0} facilities with live occupancy data
+                          </p>
+                          <p>
+                            <strong>Update Frequency:</strong> Real-time updates every minute
+                          </p>
+                          <p>
+                            <strong>Features:</strong> Live parking space availability, occupancy percentages,
+                            vacant/occupied space counts, facility capacities (total, lorry, refrigerated, heavy haul),
+                            detailed operator information, security certifications, and pricing data.
+                          </p>
+                          <div className="mt-2 pt-2 border-t border-green-300">
+                            <p className="text-xs">
+                              <strong>API:</strong> NDW Open Data Platform •
+                              <strong> Status Indicators:</strong> Green (&lt;50% full), Orange (50-75%), Red (&gt;75% or full)
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Dataset 3: Zenodo Europe-wide */}
+                      <div className="mb-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                        <h4 className="font-semibold text-base mb-2 flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-purple-600" />
+                          Zenodo Europe-Wide Dataset
+                        </h4>
+                        <div className="space-y-2 text-muted-foreground">
+                          <p>
+                            <strong>Source:</strong> Fraunhofer Institute for Systems and Innovation Research (ISI)
+                          </p>
+                          <p>
+                            <strong>Coverage:</strong> 19,713 truck parking facilities across Europe
+                          </p>
+                          <p>
+                            <strong>Geographic Scope:</strong> EU-27, EFTA countries, and United Kingdom
+                          </p>
+                          <p>
+                            <strong>Features:</strong> Includes facility locations, areas (when available),
+                            categorization, and country-level distribution data.
+                          </p>
+                          <div className="mt-2 pt-2 border-t border-purple-300">
+                            <p className="text-xs">
+                              <strong>Dataset Size:</strong> ~1.6 MB •
+                              <strong> DOI:</strong> 10.5281/zenodo.10231359 •
+                              <strong> Note:</strong> Loaded on-demand to optimize performance
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Additional Layer: Parking Spaces */}
+                      <div className="mb-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                        <h4 className="font-semibold text-base mb-2 flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-orange-600" />
+                          Detected Parking Spaces Overlay
+                        </h4>
+                        <div className="space-y-2 text-muted-foreground">
+                          <p>
+                            <strong>Source:</strong> Satellite imagery analysis and aerial photography interpretation
+                          </p>
+                          <p>
+                            <strong>Coverage:</strong> {parkingSpacesOverlay?.features?.length || 0} individual parking spaces detected
+                          </p>
+                          <p>
+                            <strong>Features:</strong> Individual parking space polygons with dimensions (length × width),
+                            area calculations, and facility associations.
+                          </p>
+                          <p>
+                            <strong>Visibility:</strong> Only displayed at zoom level 13+ for performance optimization
+                          </p>
+                          <div className="mt-2 pt-2 border-t border-orange-300">
+                            <p className="text-xs">
+                              <strong>Data Sources:</strong> PDOK Aerial 25cm resolution imagery •
+                              Provides ground-truth validation for capacity estimates
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </section>
+
+                    {/* Context Section */}
+                    <section>
+                      <h3 className="font-semibold text-lg mb-2">Context & Background</h3>
+                      <div className="space-y-2 text-muted-foreground">
+                        <p>
+                          <strong>Dutch Motorway Rest Areas:</strong> Follow a three-tier public-private model where
+                          land is owned by Rijksstaat (Dutch National Government), infrastructure is managed by
+                          Rijkswaterstaat (RWS), property is managed by Rijksvastgoedbedrijf, and operations
+                          are handled by private concessionaires (Shell, BP, Total, Esso) via 15-year leases.
+                        </p>
+                        <p>
+                          <strong>Parking Shortage:</strong> The Netherlands faces a national shortage of
+                          approximately 4,400 truck parking spaces, making real-time occupancy data crucial
+                          for logistics planning.
+                        </p>
+                        <p>
+                          <strong>LZV Compliance:</strong> Some facilities accommodate LZV (Longer and Heavier Vehicles)
+                          up to 25.25m in length.
+                        </p>
+                      </div>
+                    </section>
+
+                    {/* Technical Details */}
+                    <section>
+                      <h3 className="font-semibold text-lg mb-2">Technical Architecture</h3>
+                      <div className="space-y-2 text-muted-foreground">
+                        <p>
+                          <strong>Framework:</strong> Next.js 16 with App Router • React 19.2.0
+                        </p>
+                        <p>
+                          <strong>Mapping:</strong> Leaflet 1.9.4 + react-leaflet 5.0
+                        </p>
+                        <p>
+                          <strong>Styling:</strong> Tailwind CSS 3.4 + shadcn/ui components
+                        </p>
+                        <p>
+                          <strong>Map Layers:</strong> Multiple base layers including OpenStreetMap, Satellite imagery,
+                          PDOK Aerial (25cm and HR), Topographic, Dark, and Light themes
+                        </p>
+                        <p>
+                          <strong>Performance Optimizations:</strong> Viewport-based loading, marker clustering,
+                          lazy loading of administrative boundaries, debounced searches
+                        </p>
+                      </div>
+                    </section>
+
+                    {/* Statistics */}
+                    <section>
+                      <h3 className="font-semibold text-lg mb-2">Statistics</h3>
+                      <div className="grid grid-cols-3 gap-3">
+                        <Card className="p-3 bg-red-50 border-red-200">
+                          <div className="text-xl font-bold text-red-900">{stats.truck_parking}</div>
+                          <div className="text-xs text-red-700">Truck Parking</div>
+                        </Card>
+                        <Card className="p-3 bg-blue-50 border-blue-200">
+                          <div className="text-xl font-bold text-blue-900">{stats.service_area}</div>
+                          <div className="text-xs text-blue-700">Service Areas</div>
+                        </Card>
+                        <Card className="p-3 bg-green-50 border-green-200">
+                          <div className="text-xl font-bold text-green-900">{stats.rest_area}</div>
+                          <div className="text-xs text-green-700">Rest Areas</div>
+                        </Card>
+                      </div>
+                    </section>
+
+                    {/* Footer */}
+                    <section className="pt-4 border-t">
+                      <p className="text-xs text-muted-foreground">
+                        This application is designed to support logistics planning, fleet management,
+                        and transportation research by providing comprehensive, real-time truck parking information.
+                      </p>
+                    </section>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
 
             {/* Dropdown with location options */}
