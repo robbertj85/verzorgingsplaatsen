@@ -370,15 +370,19 @@ export default function TruckParkingMapEnhanced() {
   // Lazy load detected parking spaces overlay only when enabled
   useEffect(() => {
     if (showParkingSpaces && !parkingSpacesOverlay) {
-      console.log("Loading parking spaces overlay...");
-      fetch("/parking_spaces_overlay.geojson")
+      console.log("Loading OSM parking spaces overlay...");
+      fetch("/south_holland_osm_parking_spaces.geojson")
         .then((res) => res.json())
         .then((data) => {
-          console.log("Parking spaces overlay loaded");
+          console.log("OSM parking spaces overlay loaded:", {
+            totalFeatures: data.features.length,
+            parkingSpaces: data.features.filter((f: any) => f.properties.feature_type === 'parking_space').length,
+            parkingAreas: data.features.filter((f: any) => f.properties.feature_type === 'parking_area').length,
+          });
           setParkingSpacesOverlay(data);
         })
         .catch((error) => {
-          console.error("Error loading parking spaces overlay:", error);
+          console.error("Error loading OSM parking spaces overlay:", error);
         });
     }
   }, [showParkingSpaces, parkingSpacesOverlay]);
@@ -1796,27 +1800,48 @@ export default function TruckParkingMapEnhanced() {
                 />
               )}
 
-              {/* Detected Parking Spaces Overlay - Only show at zoom 13+ */}
+              {/* OSM Parking Spaces Overlay - Only show at zoom 13+ */}
               {showParkingSpaces && parkingSpacesOverlay && zoom >= 13 && (
                 <GeoJSON
                   data={parkingSpacesOverlay}
-                  style={{
-                    color: "#f97316",
-                    weight: 2,
-                    fillColor: "#fb923c",
-                    fillOpacity: 0.4,
-                    opacity: 0.9,
+                  style={(feature) => {
+                    const isSpace = feature?.properties?.feature_type === 'parking_space';
+                    const vehicleColor = feature?.properties?.color || (isSpace ? '#10b981' : '#3b82f6');
+
+                    return {
+                      color: vehicleColor,
+                      weight: isSpace ? 1 : 2,
+                      fillColor: vehicleColor,
+                      fillOpacity: isSpace ? 0.3 : 0.2,
+                      opacity: 0.7,
+                    };
                   }}
                   onEachFeature={(feature, layer) => {
                     const props = feature.properties;
-                    const tooltipContent = `
-                      <div style="font-size: 12px;">
-                        <strong>${props.facility_name}</strong><br/>
-                        Space #${props.space_number}<br/>
-                        ${props.length_m}m × ${props.width_m}m<br/>
-                        Area: ${props.area_m2} m²
-                      </div>
-                    `;
+                    const isSpace = props.feature_type === 'parking_space';
+
+                    let tooltipContent = '';
+                    if (isSpace) {
+                      tooltipContent = `
+                        <div style="font-size: 12px;">
+                          <strong>${props.facility_name || 'Parking Space'}</strong><br/>
+                          <em>${props.vehicle_label || 'Parking'}</em><br/>
+                          OSM ID: ${props.osm_id}
+                        </div>
+                      `;
+                    } else {
+                      // Parking area
+                      tooltipContent = `
+                        <div style="font-size: 12px;">
+                          <strong>${props.name || props.facility_name || 'Parking Area'}</strong><br/>
+                          <em>${props.vehicle_label || 'Parking'}</em><br/>
+                          ${props.capacity ? `Capacity: ${props.capacity}<br/>` : ''}
+                          ${props.operator && props.operator !== 'Unknown' ? `Operator: ${props.operator}<br/>` : ''}
+                          OSM ID: ${props.osm_id}
+                        </div>
+                      `;
+                    }
+
                     layer.bindTooltip(tooltipContent, {
                       permanent: false,
                       direction: "top",
