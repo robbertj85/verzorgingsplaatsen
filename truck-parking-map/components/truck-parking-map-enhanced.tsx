@@ -211,9 +211,12 @@ export default function TruckParkingMapEnhanced() {
   const [isRefreshingZenodo, setIsRefreshingZenodo] = useState(false);
   const zenodoGeoJsonLayerRef = useRef<L.GeoJSON | null>(null);
 
-  // Detected parking spaces overlay state
-  const [parkingSpacesOverlay, setParkingSpacesOverlay] = useState<any>(null);
-  const [showParkingSpaces, setShowParkingSpaces] = useState(false);
+  // Parking spaces overlay state - 3 separate layers
+  const [osmParkingSpaces, setOsmParkingSpaces] = useState<any>(null);
+  const [estimatedParkingSpaces, setEstimatedParkingSpaces] = useState<any>(null);
+  const [showOsmTruckSpaces, setShowOsmTruckSpaces] = useState(false);
+  const [showOsmVanSpaces, setShowOsmVanSpaces] = useState(false);
+  const [showEstimatedSpaces, setShowEstimatedSpaces] = useState(false);
 
   // Location search state
   const [locationSearch, setLocationSearch] = useState("");
@@ -367,9 +370,9 @@ export default function TruckParkingMapEnhanced() {
     }
   }, [showMunicipalities, municipalities]);
 
-  // Lazy load detected parking spaces overlay only when enabled
+  // Lazy load OSM parking spaces only when enabled
   useEffect(() => {
-    if (showParkingSpaces && !parkingSpacesOverlay) {
+    if ((showOsmTruckSpaces || showOsmVanSpaces) && !osmParkingSpaces) {
       console.log("Loading OSM parking spaces overlay...");
       fetch("/south_holland_osm_parking_spaces.geojson")
         .then((res) => res.json())
@@ -379,13 +382,31 @@ export default function TruckParkingMapEnhanced() {
             parkingSpaces: data.features.filter((f: any) => f.properties.feature_type === 'parking_space').length,
             parkingAreas: data.features.filter((f: any) => f.properties.feature_type === 'parking_area').length,
           });
-          setParkingSpacesOverlay(data);
+          setOsmParkingSpaces(data);
         })
         .catch((error) => {
           console.error("Error loading OSM parking spaces overlay:", error);
         });
     }
-  }, [showParkingSpaces, parkingSpacesOverlay]);
+  }, [showOsmTruckSpaces, showOsmVanSpaces, osmParkingSpaces]);
+
+  // Lazy load estimated parking spaces only when enabled
+  useEffect(() => {
+    if (showEstimatedSpaces && !estimatedParkingSpaces) {
+      console.log("Loading estimated parking spaces overlay...");
+      fetch("/south_holland_estimated_parking_spaces.geojson")
+        .then((res) => res.json())
+        .then((data) => {
+          console.log("Estimated parking spaces overlay loaded:", {
+            totalFeatures: data.features.length,
+          });
+          setEstimatedParkingSpaces(data);
+        })
+        .catch((error) => {
+          console.error("Error loading estimated parking spaces overlay:", error);
+        });
+    }
+  }, [showEstimatedSpaces, estimatedParkingSpaces]);
 
   // Handle location selection after boundaries are loaded
   useEffect(() => {
@@ -412,12 +433,19 @@ export default function TruckParkingMapEnhanced() {
               : f.location?.municipality?.toLowerCase() === selectedLocation.name.toLowerCase()
           ) || [];
 
-          const detectedSpaces = parkingSpacesOverlay?.features?.filter((f: any) =>
+          // Count all parking spaces (OSM + estimated)
+          const osmSpaces = osmParkingSpaces?.features?.filter((f: any) =>
             facilitiesInLocation.some(facility =>
               Math.abs(facility.latitude - f.geometry.coordinates[1]) < 0.001 &&
               Math.abs(facility.longitude - f.geometry.coordinates[0]) < 0.001
             )
           )?.length || 0;
+          const estSpaces = estimatedParkingSpaces?.features?.filter((f: any) =>
+            facilitiesInLocation.some(facility =>
+              facility.id === f.properties.facility_id
+            )
+          )?.length || 0;
+          const detectedSpaces = osmSpaces + estSpaces;
 
           setSelectedLocation({
             ...selectedLocation,
@@ -433,7 +461,7 @@ export default function TruckParkingMapEnhanced() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [provinces, municipalities, data, parkingSpacesOverlay]);
+  }, [provinces, municipalities, data, osmParkingSpaces, estimatedParkingSpaces]);
 
   const center: LatLngExpression = [52.1326, 5.2913]; // Center of Netherlands
   const initialZoom = 8;
@@ -542,12 +570,19 @@ export default function TruckParkingMapEnhanced() {
           : f.location?.municipality?.toLowerCase() === name.toLowerCase()
       ) || [];
 
-      const detectedSpaces = parkingSpacesOverlay?.features?.filter((f: any) =>
+      // Count all parking spaces (OSM + estimated)
+      const osmSpaces = osmParkingSpaces?.features?.filter((f: any) =>
         facilitiesInLocation.some(facility =>
           Math.abs(facility.latitude - f.geometry.coordinates[1]) < 0.001 &&
           Math.abs(facility.longitude - f.geometry.coordinates[0]) < 0.001
         )
       )?.length || 0;
+      const estSpaces = estimatedParkingSpaces?.features?.filter((f: any) =>
+        facilitiesInLocation.some(facility =>
+          facility.id === f.properties.facility_id
+        )
+      )?.length || 0;
+      const detectedSpaces = osmSpaces + estSpaces;
 
       setSelectedLocation({
         type,
@@ -561,7 +596,7 @@ export default function TruckParkingMapEnhanced() {
         },
       });
     }
-  }, [provinces, municipalities, data, parkingSpacesOverlay]);
+  }, [provinces, municipalities, data, osmParkingSpaces, estimatedParkingSpaces]);
 
   // Calculate radius based on zoom level (memoized)
   const getMarkerRadius = useCallback((zoomLevel: number) => {
@@ -917,24 +952,65 @@ export default function TruckParkingMapEnhanced() {
                 </div>
               )}
 
-              <div className="flex items-center space-x-2">
+              {/* Parking Spaces - 3 Sublayers */}
+              <div className="font-semibold text-sm mb-2 mt-2">🅿️ Parking Spaces</div>
+
+              {/* OSM Truck Parking Spaces */}
+              <div className="flex items-center space-x-2 pl-4">
                 <Checkbox
-                  id="parkingSpaces"
-                  checked={showParkingSpaces}
-                  onCheckedChange={() => setShowParkingSpaces(!showParkingSpaces)}
+                  id="osmTruckSpaces"
+                  checked={showOsmTruckSpaces}
+                  onCheckedChange={() => setShowOsmTruckSpaces(!showOsmTruckSpaces)}
                 />
                 <Label
-                  htmlFor="parkingSpaces"
+                  htmlFor="osmTruckSpaces"
                   className="flex items-center gap-2 cursor-pointer text-sm"
                 >
-                  🅿️ Detected Parking Spaces
-                  <Badge variant="outline" className="ml-auto bg-orange-100 text-orange-800">
-                    {parkingSpacesOverlay?.features?.length || 0}
+                  🚛 OSM Truck Spaces
+                  <Badge variant="outline" className="ml-auto bg-red-100 text-red-800">
+                    {osmParkingSpaces?.features?.filter((f: any) => f.properties.vehicle_type === 'truck').length || 0}
                   </Badge>
                 </Label>
               </div>
-              {showParkingSpaces && zoom < 13 && (
-                <div className="text-xs text-muted-foreground pl-6">
+
+              {/* OSM Van/Car Parking Spaces */}
+              <div className="flex items-center space-x-2 pl-4 mt-1">
+                <Checkbox
+                  id="osmVanSpaces"
+                  checked={showOsmVanSpaces}
+                  onCheckedChange={() => setShowOsmVanSpaces(!showOsmVanSpaces)}
+                />
+                <Label
+                  htmlFor="osmVanSpaces"
+                  className="flex items-center gap-2 cursor-pointer text-sm"
+                >
+                  🚐 OSM Van/Car Spaces
+                  <Badge variant="outline" className="ml-auto bg-blue-100 text-blue-800">
+                    {osmParkingSpaces?.features?.filter((f: any) => f.properties.vehicle_type === 'car').length || 0}
+                  </Badge>
+                </Label>
+              </div>
+
+              {/* Estimated Parking Spaces */}
+              <div className="flex items-center space-x-2 pl-4 mt-1">
+                <Checkbox
+                  id="estimatedSpaces"
+                  checked={showEstimatedSpaces}
+                  onCheckedChange={() => setShowEstimatedSpaces(!showEstimatedSpaces)}
+                />
+                <Label
+                  htmlFor="estimatedSpaces"
+                  className="flex items-center gap-2 cursor-pointer text-sm"
+                >
+                  📐 Estimated Spaces
+                  <Badge variant="outline" className="ml-auto bg-purple-100 text-purple-800">
+                    {estimatedParkingSpaces?.features?.length || 0}
+                  </Badge>
+                </Label>
+              </div>
+
+              {(showOsmTruckSpaces || showOsmVanSpaces || showEstimatedSpaces) && zoom < 13 && (
+                <div className="text-xs text-muted-foreground pl-10 mt-1">
                   Zoom in to see spaces (zoom 13+)
                 </div>
               )}
@@ -1124,7 +1200,7 @@ export default function TruckParkingMapEnhanced() {
                             <strong>Source:</strong> Satellite imagery analysis and aerial photography interpretation
                           </p>
                           <p>
-                            <strong>Coverage:</strong> {parkingSpacesOverlay?.features?.length || 0} individual parking spaces detected
+                            <strong>Coverage:</strong> {(osmParkingSpaces?.features?.length || 0) + (estimatedParkingSpaces?.features?.length || 0)} individual parking spaces (OSM + estimated)
                           </p>
                           <p>
                             <strong>Features:</strong> Individual parking space polygons with dimensions (length × width),
@@ -1800,48 +1876,96 @@ export default function TruckParkingMapEnhanced() {
                 />
               )}
 
-              {/* OSM Parking Spaces Overlay - Only show at zoom 13+ */}
-              {showParkingSpaces && parkingSpacesOverlay && zoom >= 13 && (
+              {/* OSM Truck Parking Spaces - Only show at zoom 13+ */}
+              {showOsmTruckSpaces && osmParkingSpaces && zoom >= 13 && (
                 <GeoJSON
-                  data={parkingSpacesOverlay}
-                  style={(feature) => {
-                    const isSpace = feature?.properties?.feature_type === 'parking_space';
-                    const vehicleColor = feature?.properties?.color || (isSpace ? '#10b981' : '#3b82f6');
-
-                    return {
-                      color: vehicleColor,
-                      weight: isSpace ? 1 : 2,
-                      fillColor: vehicleColor,
-                      fillOpacity: isSpace ? 0.3 : 0.2,
-                      opacity: 0.7,
-                    };
+                  key="osm-truck-spaces"
+                  data={{
+                    type: 'FeatureCollection',
+                    features: osmParkingSpaces.features.filter(
+                      (f: any) => f.properties.feature_type === 'parking_space' && f.properties.vehicle_type === 'truck'
+                    )
+                  }}
+                  style={{
+                    color: '#ef4444',
+                    weight: 1,
+                    fillColor: '#ef4444',
+                    fillOpacity: 0.4,
+                    opacity: 0.8,
                   }}
                   onEachFeature={(feature, layer) => {
                     const props = feature.properties;
-                    const isSpace = props.feature_type === 'parking_space';
+                    const tooltipContent = `
+                      <div style="font-size: 12px;">
+                        <strong>${props.facility_name || 'Truck Parking Space'}</strong><br/>
+                        <em style="color: #ef4444;">🚛 ${props.vehicle_label || 'Truck Parking'}</em><br/>
+                        OSM ID: ${props.osm_id}
+                      </div>
+                    `;
+                    layer.bindTooltip(tooltipContent, {
+                      permanent: false,
+                      direction: "top",
+                    });
+                  }}
+                />
+              )}
 
-                    let tooltipContent = '';
-                    if (isSpace) {
-                      tooltipContent = `
-                        <div style="font-size: 12px;">
-                          <strong>${props.facility_name || 'Parking Space'}</strong><br/>
-                          <em>${props.vehicle_label || 'Parking'}</em><br/>
-                          OSM ID: ${props.osm_id}
-                        </div>
-                      `;
-                    } else {
-                      // Parking area
-                      tooltipContent = `
-                        <div style="font-size: 12px;">
-                          <strong>${props.name || props.facility_name || 'Parking Area'}</strong><br/>
-                          <em>${props.vehicle_label || 'Parking'}</em><br/>
-                          ${props.capacity ? `Capacity: ${props.capacity}<br/>` : ''}
-                          ${props.operator && props.operator !== 'Unknown' ? `Operator: ${props.operator}<br/>` : ''}
-                          OSM ID: ${props.osm_id}
-                        </div>
-                      `;
-                    }
+              {/* OSM Van/Car Parking Spaces - Only show at zoom 13+ */}
+              {showOsmVanSpaces && osmParkingSpaces && zoom >= 13 && (
+                <GeoJSON
+                  key="osm-van-spaces"
+                  data={{
+                    type: 'FeatureCollection',
+                    features: osmParkingSpaces.features.filter(
+                      (f: any) => f.properties.feature_type === 'parking_space' && f.properties.vehicle_type !== 'truck'
+                    )
+                  }}
+                  style={{
+                    color: '#3b82f6',
+                    weight: 1,
+                    fillColor: '#3b82f6',
+                    fillOpacity: 0.4,
+                    opacity: 0.8,
+                  }}
+                  onEachFeature={(feature, layer) => {
+                    const props = feature.properties;
+                    const tooltipContent = `
+                      <div style="font-size: 12px;">
+                        <strong>${props.facility_name || 'Van/Car Parking Space'}</strong><br/>
+                        <em style="color: #3b82f6;">🚐 ${props.vehicle_label || 'Van/Car Parking'}</em><br/>
+                        OSM ID: ${props.osm_id}
+                      </div>
+                    `;
+                    layer.bindTooltip(tooltipContent, {
+                      permanent: false,
+                      direction: "top",
+                    });
+                  }}
+                />
+              )}
 
+              {/* Estimated Parking Spaces - Only show at zoom 13+ */}
+              {showEstimatedSpaces && estimatedParkingSpaces && zoom >= 13 && (
+                <GeoJSON
+                  key="estimated-spaces"
+                  data={estimatedParkingSpaces}
+                  style={{
+                    color: '#9333ea',
+                    weight: 1,
+                    fillColor: '#9333ea',
+                    fillOpacity: 0.3,
+                    opacity: 0.7,
+                  }}
+                  onEachFeature={(feature, layer) => {
+                    const props = feature.properties;
+                    const tooltipContent = `
+                      <div style="font-size: 12px;">
+                        <strong>${props.facility_name || 'Estimated Space'}</strong><br/>
+                        <em style="color: #9333ea;">📐 ${props.vehicle_label || 'Estimated Parking'}</em><br/>
+                        Space #${props.space_number || 'N/A'}<br/>
+                        ${props.width_m && props.length_m ? `Size: ${props.width_m}m × ${props.length_m}m` : ''}
+                      </div>
+                    `;
                     layer.bindTooltip(tooltipContent, {
                       permanent: false,
                       direction: "top",
