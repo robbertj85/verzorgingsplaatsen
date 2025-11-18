@@ -391,19 +391,21 @@ export default function TruckParkingMapEnhanced() {
   }, [showOsmTruckSpaces, showOsmVanSpaces, osmParkingSpaces]);
 
   // Lazy load estimated parking spaces only when enabled
+  // NOTE: Currently loading Maasvlakte pilot (fixed) data
   useEffect(() => {
     if (showEstimatedSpaces && !estimatedParkingSpaces) {
-      console.log("Loading estimated parking spaces overlay...");
-      fetch("/south_holland_estimated_parking_spaces.geojson")
+      console.log("Loading Maasvlakte pilot (FIXED) parking spaces...");
+      fetch("/maasvlakte_estimated_parking_pilot.geojson")
         .then((res) => res.json())
         .then((data) => {
-          console.log("Estimated parking spaces overlay loaded:", {
+          console.log("Maasvlakte pilot spaces loaded (FIXED):", {
             totalFeatures: data.features.length,
+            note: "Correctly classified as TRUCK spaces with proper capacity"
           });
           setEstimatedParkingSpaces(data);
         })
         .catch((error) => {
-          console.error("Error loading estimated parking spaces overlay:", error);
+          console.error("Error loading pilot parking spaces:", error);
         });
     }
   }, [showEstimatedSpaces, estimatedParkingSpaces]);
@@ -991,7 +993,7 @@ export default function TruckParkingMapEnhanced() {
                 </Label>
               </div>
 
-              {/* Estimated Parking Spaces */}
+              {/* Estimated Parking Spaces - Maasvlakte Pilot */}
               <div className="flex items-center space-x-2 pl-4 mt-1">
                 <Checkbox
                   id="estimatedSpaces"
@@ -1002,9 +1004,9 @@ export default function TruckParkingMapEnhanced() {
                   htmlFor="estimatedSpaces"
                   className="flex items-center gap-2 cursor-pointer text-sm"
                 >
-                  📐 Estimated Spaces
-                  <Badge variant="outline" className="ml-auto bg-purple-100 text-purple-800">
-                    {estimatedParkingSpaces?.features?.length || 0}
+                  📐 Estimated Spaces (Maasvlakte Pilot)
+                  <Badge variant="outline" className="ml-auto bg-red-100 text-red-800">
+                    {estimatedParkingSpaces?.features?.length || 0} ✓
                   </Badge>
                 </Label>
               </div>
@@ -1987,24 +1989,28 @@ export default function TruckParkingMapEnhanced() {
                 />
               )}
 
-              {/* Estimated Parking Spaces - Only show at zoom 13+ */}
+              {/* Estimated Parking Spaces (Maasvlakte Pilot) - Only show at zoom 13+ */}
               {showEstimatedSpaces && estimatedParkingSpaces && zoom >= 13 && (
                 <GeoJSON
-                  key="estimated-spaces"
+                  key="estimated-spaces-pilot"
                   data={estimatedParkingSpaces}
-                  style={{
-                    color: '#9333ea',
-                    weight: 1,
-                    fillColor: '#9333ea',
-                    fillOpacity: 0.3,
-                    opacity: 0.7,
+                  style={(feature) => {
+                    const color = feature?.properties?.color || '#ef4444';
+                    return {
+                      color: color,
+                      weight: 2,
+                      fillColor: color,
+                      fillOpacity: 0.4,
+                      opacity: 0.8,
+                    };
                   }}
                   onEachFeature={(feature, layer) => {
                     const props = feature.properties;
+                    const color = props.color || '#ef4444';
                     const tooltipContent = `
                       <div style="font-size: 12px;">
                         <strong>${props.facility_name || 'Estimated Space'}</strong><br/>
-                        <em style="color: #9333ea;">📐 ${props.vehicle_label || 'Estimated Parking'}</em><br/>
+                        <em style="color: ${color};">🚛 ${props.vehicle_label || 'Truck Parking'} ✓</em><br/>
                         Space #${props.space_number || 'N/A'}<br/>
                         ${props.width_m && props.length_m ? `Size: ${props.width_m}m × ${props.length_m}m` : ''}
                       </div>
